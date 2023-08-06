@@ -1,0 +1,26 @@
+[package]
+authors = ["Germano Rizzo <oss AT germanorizzo DOT it>"]
+description = "A SQLite remote gateway - query SQLite via HTTP"
+name = "sqliterg"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+lazy_static = "~1"
+# rusqlite = { version = "~0", features = ["bundled"] }
+rusqlite = { version = "~0" }
+clap = { version = "~4", features = [ "derive" ] }
+actix-web = "~4"
+serde = { version = "~1", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "~0"
+serde_derive = "~1"
+
+[profile.release]
+strip = true
+lto = true
+
+[[bin]]
+name = "sqliterg"
+path = "src/main.rs"
