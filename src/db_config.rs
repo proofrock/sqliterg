@@ -23,6 +23,8 @@
 use std::fs::File;
 use std::io::Read;
 
+use crate::commons::default_as_false;
+
 #[derive(Debug, Deserialize)]
 pub enum AuthMode {
     HTTP,
@@ -51,31 +53,37 @@ pub struct ScheduledTask {
     #[serde(rename = "hashedPassword")]
     pub schedule: Option<String>,
     #[serde(rename = "doVacuum")]
-    pub do_vacuum: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub do_vacuum: bool,
     #[serde(rename = "doBackup")]
-    pub do_backup: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub do_backup: bool,
     #[serde(rename = "backupTemplate")]
     pub backup_template: Option<String>,
     #[serde(rename = "numFiles")]
     pub num_files: Option<i32>,
     pub statements: Option<Vec<String>>,
     #[serde(rename = "atStartup")]
-    pub at_startup: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub at_startup: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct DbConfig {
     pub auth: Option<Auth>,
     #[serde(rename = "disableWALMode")]
-    pub disable_wal_mode: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub disable_wal_mode: bool,
     #[serde(rename = "readOnly")]
-    pub read_only: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub read_only: bool,
     #[serde(rename = "scheduledTasks")]
     pub scheduled_tasks: Option<Vec<ScheduledTask>>,
     #[serde(rename = "corsOrigin")]
     pub cors_origin: Option<String>,
     #[serde(rename = "useOnlyStoredStatements")]
-    pub use_only_stored_statements: Option<bool>,
+    #[serde(default = "default_as_false")]
+    pub use_only_stored_statements: bool,
     #[serde(rename = "storedStatements")]
     pub stored_statements: Option<Vec<StoredStatement>>,
     #[serde(rename = "initStatements")]

@@ -1,0 +1,1 @@
+- removed encryption feature (it was standard-based but very custom)

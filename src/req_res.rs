@@ -1,5 +1,5 @@
 // MIT License
-// 
+//
 // Copyright (c) 2023-, Germano Rizzo <oss /AT/ germanorizzo /DOT/ it>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,20 +20,30 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use rusqlite::{Connection, Error};
+use serde::Deserialize;
+use serde_json::Value as JsonValue;
 
-use crate::req_res;
+use crate::commons::default_as_false;
 
-pub fn query_first_field(conn: &Connection, query: &req_res::Request) -> Result<rusqlite::types::Value, Error> {
-    let sql: String = query.transaction[0].query.as_ref().unwrap().to_string();
+#[derive(Debug, Deserialize)]
+pub struct ReqCredentials {
+    pub user: String,
+    pub password: String,
+}
 
-    let mut stmt = conn.prepare(sql.as_str())?;
+#[derive(Debug, Deserialize)]
+pub struct ReqTransaction {
+    #[serde(rename = "noFail")]
+    #[serde(default = "default_as_false")]
+    pub no_fail: bool,
+    pub query: Option<String>,
+    pub statement: Option<String>,
+    pub values: Option<JsonValue>,
+    pub values_batch: Option<Vec<JsonValue>>,
+}
 
-    let mut rows = stmt.query([])?;
-
-    let row = rows.next()?;
-
-    let value: rusqlite::types::Value = row.as_ref().unwrap().get(0)?;
-    
-    Ok(value) 
+#[derive(Debug, Deserialize)]
+pub struct Request {
+    pub credentials: Option<ReqCredentials>,
+    pub transaction: Vec<ReqTransaction>,
 }

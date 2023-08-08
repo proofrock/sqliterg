@@ -20,20 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use rusqlite::{Connection, Error};
+// https://github.com/serde-rs/serde/issues/1030#issuecomment-522278006
+pub fn default_as_false() -> bool {
+    false
+}
 
-use crate::req_res;
-
-pub fn query_first_field(conn: &Connection, query: &req_res::Request) -> Result<rusqlite::types::Value, Error> {
-    let sql: String = query.transaction[0].query.as_ref().unwrap().to_string();
-
-    let mut stmt = conn.prepare(sql.as_str())?;
-
-    let mut rows = stmt.query([])?;
-
-    let row = rows.next()?;
-
-    let value: rusqlite::types::Value = row.as_ref().unwrap().get(0)?;
-    
-    Ok(value) 
+pub fn default_as_true() -> bool {
+    true
 }
