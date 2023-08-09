@@ -3,7 +3,7 @@
 URL="http://localhost:12321/query"
 CONTENT_TYPE="Content-Type: application/json"
 REQ='{"transaction": [{"query": "SELECT * FROM TBL"},{"query": "SELECT * FROM TBL"}]}'
-REQUESTS=1000
+REQUESTS=10000
 
 pkill -x ws4sqlite
 pkill -x sqliterg
