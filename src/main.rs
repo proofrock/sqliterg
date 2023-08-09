@@ -25,7 +25,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate lazy_static;
 
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpServer, Responder};
 use rusqlite::Connection;
 use std::{collections::HashMap, ops::Deref, sync::RwLock};
 
@@ -50,13 +50,12 @@ async fn handle_query(query: web::Json<req_res::Request>) -> impl Responder {
     let db_lock_guard = db_lock.lock().unwrap();
     let db = db_lock_guard.deref();
 
-    let result = logic::query_first_field(db, query.deref()).unwrap();
-    // println!("Received SQL query: {}", query.sql);
+    let result = logic::process(db, query.deref()).unwrap();
 
     drop(db_lock_guard);
     drop(read_lock_guard);
 
-    HttpResponse::Ok().body(format!("Query received successfully: {:?}\n", result))
+    result
 }
 
 fn print_sqlite_version() {
@@ -67,7 +66,7 @@ fn print_sqlite_version() {
     println!("SQLite version: {}", version);
 }
 
-// curl -X POST -H "Content-Type: application/json" -d '{"transaction": [{"query": "SELECT * FROM TBL"}]}' http://localhost:12321/query
+// curl -X POST -H "Content-Type: application/json" -d '{"transaction": [{"query": "SELECT * FROM TBL"},{"query": "SELECT * FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     print_sqlite_version();

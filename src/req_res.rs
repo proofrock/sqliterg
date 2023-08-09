@@ -20,7 +20,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use serde::Deserialize;
+use actix_web::{Responder, body::BoxBody, HttpRequest, HttpResponse, http::header::ContentType};
+use serde::{Serialize, Deserialize};
+
 use serde_json::Value as JsonValue;
 
 use crate::commons::default_as_false;
@@ -46,4 +48,32 @@ pub struct ReqTransaction {
 pub struct Request {
     pub credentials: Option<ReqCredentials>,
     pub transaction: Vec<ReqTransaction>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ResponseItemQuery {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(rename = "resultSet")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_set: Option<Vec<JsonValue>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Response {
+    pub results: Vec<ResponseItemQuery>,
+}
+
+impl Responder for Response {
+    type Body = BoxBody;
+
+    fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
+        let body = serde_json::to_string(&self).unwrap();
+
+        // Create response and set content type
+        HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(body)
+    }
 }
