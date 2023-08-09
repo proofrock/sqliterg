@@ -1,5 +1,5 @@
 // MIT License
-// 
+//
 // Copyright (c) 2023-, Germano Rizzo <oss /AT/ germanorizzo /DOT/ it>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,13 +27,17 @@ extern crate lazy_static;
 
 use actix_web::{web, App, HttpServer, Responder};
 use rusqlite::Connection;
-use std::{collections::HashMap, ops::{Deref, DerefMut}, sync::RwLock};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    sync::RwLock,
+};
 
-pub mod commons;
 pub mod commandline;
+pub mod commons;
 pub mod db_config;
-pub mod main_config;
 mod logic;
+pub mod main_config;
 pub mod req_res;
 
 use crate::main_config::{compose_db_map, Db};
@@ -58,18 +62,18 @@ async fn handle_query(query: web::Json<req_res::Request>) -> impl Responder {
     result
 }
 
-fn print_sqlite_version() {
+fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open("database.db").unwrap();
     let version: String = conn
         .query_row("SELECT sqlite_version()", [], |row| row.get(0))
         .unwrap();
-    println!("SQLite version: {}", version);
+    version
 }
 
 // curl -X POST -H "Content-Type: application/json" -d '{"transaction": [{"query": "SELECT * FROM TBL"},{"query": "SELECT * FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    print_sqlite_version();
+    println!("SQLite version: {}", get_sqlite_version());
 
     let cli = commandline::parse_cli();
 

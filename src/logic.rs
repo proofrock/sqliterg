@@ -20,16 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use rusqlite::types::Value;
-use rusqlite::{Connection, Error, Transaction};
-
-use serde_json::json;
-use serde_json::Map as JsonMap;
-use serde_json::Value as JsonValue;
+use rusqlite::{types::Value, Connection, Error, Transaction};
+use serde_json::{json, Map as JsonMap, Value as JsonValue};
+use serde_rusqlite::to_params_named; // test serde_json option in Cargo.toml
 
 use crate::req_res::{self, ReqTransaction, Response, ResponseItemQuery};
 
-fn val2val(val: Value) -> JsonValue {
+fn val_db2val_json(val: Value) -> JsonValue {
     match val {
         Value::Null => JsonValue::Null,
         Value::Integer(v) => json!(v),
@@ -39,19 +36,28 @@ fn val2val(val: Value) -> JsonValue {
     }
 }
 
+// {"transaction": [{"query": "SELECT * FROM TBL WHERE ID=:id", "values":["id": 1],}]}
+// TODO queries cannot have a valuesBatch
 fn do_query(tx: &Transaction, req: &ReqTransaction) -> Result<Vec<JsonValue>, Error> {
     let sql = req.query.as_ref().unwrap();
     let stmt = tx.prepare(&sql)?;
     let column_names = stmt.column_names();
     let mut stmt = tx.prepare(&sql)?;
-    let mut rows = stmt.query([])?;
+    let params_ref: Option<&JsonValue> = req.values.as_ref();
+    let mut rows = match params_ref {
+        Some(p) => {
+            let map = p.as_object().unwrap();
+            let params = to_params_named(&map).unwrap(); // TODO manage the error!
+            stmt.query(params.to_slice().as_slice())?
+        } // TODO
+        None => stmt.query([])?,
+    };
     let mut response = vec![];
     while let Some(row) = rows.next().unwrap() {
         let mut map: JsonMap<String, JsonValue> = JsonMap::new();
         for (i, col_name) in column_names.iter().enumerate() {
             let value: Value = row.get_unwrap(i);
-
-            map.insert(col_name.to_string(), val2val(value));
+            map.insert(col_name.to_string(), val_db2val_json(value));
         }
         response.push(JsonValue::Object(map));
     }
