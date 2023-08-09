@@ -27,7 +27,7 @@ extern crate lazy_static;
 
 use actix_web::{web, App, HttpServer, Responder};
 use rusqlite::Connection;
-use std::{collections::HashMap, ops::Deref, sync::RwLock};
+use std::{collections::HashMap, ops::{Deref, DerefMut}, sync::RwLock};
 
 pub mod commons;
 pub mod commandline;
@@ -47,8 +47,8 @@ async fn handle_query(query: web::Json<req_res::Request>) -> impl Responder {
     let map = read_lock_guard.deref();
     let db_conf = map.get("bubbu").unwrap();
     let db_lock = &db_conf.sqlite;
-    let db_lock_guard = db_lock.lock().unwrap();
-    let db = db_lock_guard.deref();
+    let mut db_lock_guard = db_lock.lock().unwrap();
+    let db = db_lock_guard.deref_mut();
 
     let result = logic::process(db, query.deref()).unwrap();
 

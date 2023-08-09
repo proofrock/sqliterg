@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 use rusqlite::types::Value;
-use rusqlite::{Connection, Error};
+use rusqlite::{Connection, Error, Transaction};
 
 use serde_json::json;
 use serde_json::Map as JsonMap;
@@ -39,11 +39,11 @@ fn val2val(val: Value) -> JsonValue {
     }
 }
 
-fn do_query(conn: &Connection, req: &ReqTransaction) -> Result<Vec<JsonValue>, Error> {
+fn do_query(tx: &Transaction, req: &ReqTransaction) -> Result<Vec<JsonValue>, Error> {
     let sql = req.query.as_ref().unwrap();
-    let stmt = conn.prepare(&sql)?;
+    let stmt = tx.prepare(&sql)?;
     let column_names = stmt.column_names();
-    let mut stmt = conn.prepare(&sql)?;
+    let mut stmt = tx.prepare(&sql)?;
     let mut rows = stmt.query([])?;
     let mut response = vec![];
     while let Some(row) = rows.next().unwrap() {
@@ -58,10 +58,11 @@ fn do_query(conn: &Connection, req: &ReqTransaction) -> Result<Vec<JsonValue>, E
     Ok(response)
 }
 
-pub fn process(conn: &Connection, query: &req_res::Request) -> Result<Response, Error> {
+pub fn process(conn: &mut Connection, query: &req_res::Request) -> Result<Response, Error> {
+    let tx = conn.transaction()?;
     let mut results = vec![];
     for (_, trx) in query.transaction.iter().enumerate() {
-        let ret = do_query(conn, trx);
+        let ret = do_query(&tx, trx);
         let ret = match ret {
             Ok(val) => ResponseItemQuery {
                 success: true,
@@ -76,6 +77,7 @@ pub fn process(conn: &Connection, query: &req_res::Request) -> Result<Response, 
         };
         results.push(ret);
     }
+    tx.commit()?;
 
     Ok(Response { results })
 }
