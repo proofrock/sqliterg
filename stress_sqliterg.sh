@@ -3,13 +3,13 @@
 URL="http://localhost:12321/query"
 CONTENT_TYPE="Content-Type: application/json"
 REQ='{"transaction": [{"query": "SELECT * FROM TBL"},{"query": "SELECT * FROM TBL"}]}'
-REQUESTS=10000
+REQUESTS=1000
 
-pkill ws4sqlite
-pkill sqliterg
+pkill -x ws4sqlite
+pkill -x sqliterg
 
-cargo build --release
-target/release/sqliterg --db test/bubbu.db &
+cargo build --release &> /dev/null
+target/release/sqliterg --db test/bubbu.db &> /dev/null &
 
 start_time=$(date +%s.%N)
 
@@ -22,4 +22,4 @@ end_time=$(date +%s.%N)
 echo -n "Elapsed seconds in sqliterg: "
 echo "$end_time - $start_time" | bc
 
-pkill sqliterg
+pkill -x sqliterg
