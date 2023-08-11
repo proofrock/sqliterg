@@ -1,5 +1,5 @@
 // MIT License
-// 
+//
 // Copyright (c) 2023-, Germano Rizzo <oss /AT/ germanorizzo /DOT/ it>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,16 +25,16 @@ use std::sync::Mutex;
 
 use rusqlite::Connection;
 
-use crate::GLOBAL_MAP;
 use crate::commandline::AppConfig;
-use crate::db_config::DbConfig;
 use crate::db_config::parse_dbconf;
+use crate::db_config::DbConfig;
+use crate::GLOBAL_MAP;
 
 #[derive(Debug)]
 pub struct Db {
     pub path: String,
     pub conf: DbConfig,
-    pub sqlite: Mutex<Connection>
+    pub sqlite: Mutex<Connection>,
 }
 
 fn to_base_name(path: &String) -> String {
@@ -57,12 +57,12 @@ pub fn compose_db_map(cl: &AppConfig) {
         let db_cfg = Db {
             path: db.clone(),
             conf: parse_dbconf(to_yaml_path(&db)).unwrap(),
-            sqlite: Mutex::new(conn)
+            sqlite: Mutex::new(conn),
         };
 
-        GLOBAL_MAP.write().unwrap().insert(
-            to_base_name(&db),
-            db_cfg,
-        );
+        GLOBAL_MAP
+            .write()
+            .unwrap()
+            .insert(to_base_name(&db), db_cfg);
     }
 }

@@ -1,5 +1,5 @@
 // MIT License
-// 
+//
 // Copyright (c) 2023-, Germano Rizzo <oss /AT/ germanorizzo /DOT/ it>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy

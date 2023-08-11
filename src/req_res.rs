@@ -20,8 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use actix_web::{Responder, body::BoxBody, HttpRequest, HttpResponse, http::header::ContentType};
-use serde::{Serialize, Deserialize};
+use actix_web::{body::BoxBody, http::header::ContentType, HttpRequest, HttpResponse, Responder};
+use serde::{Deserialize, Serialize};
 
 use serde_json::Value as JsonValue;
 
@@ -34,35 +34,48 @@ pub struct ReqCredentials {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ReqTransaction {
+pub struct ReqTransactionItem {
     #[serde(rename = "noFail")]
     #[serde(default = "default_as_false")]
     pub no_fail: bool,
     pub query: Option<String>,
     pub statement: Option<String>,
     pub values: Option<JsonValue>,
-    pub values_batch: Option<Vec<JsonValue>>,
+    #[serde(rename = "valuesBatch")]
+    pub values_batch: Option<Vec<Option<JsonValue>>>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
     pub credentials: Option<ReqCredentials>,
-    pub transaction: Vec<ReqTransaction>,
+    pub transaction: Vec<ReqTransactionItem>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ResponseItemQuery {
+pub struct ResponseItem {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     #[serde(rename = "resultSet")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result_set: Option<Vec<JsonValue>>,
+    #[serde(rename = "rowsUpdated")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows_updated: Option<usize>,
+    #[serde(rename = "rowsUpdatedBatch")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows_updated_batch: Option<Vec<usize>>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct Response {
-    pub results: Vec<ResponseItemQuery>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub results: Option<Vec<ResponseItem>>,
+    #[serde(rename = "reqIdx")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub req_idx: Option<isize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 impl Responder for Response {

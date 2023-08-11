@@ -7,16 +7,17 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-lazy_static = "~1"
-# rusqlite = { version = "~0", features = ["bundled"] }
-rusqlite = { version = "~0" }
-clap = { version = "~4", features = [ "derive" ] }
 actix-web = "~4"
+clap = { version = "~4", features = [ "derive" ] }
+eyre = "~0"
+lazy_static = "~1"
+rusqlite = { version = "~0", features = ["bundled"] }
+# rusqlite = { version = "~0" }
 serde = { version = "~1", features = ["derive"] }
-serde_json = "~1"
-serde_yaml = "~0"
 serde_derive = "~1"
+serde_json = "~1"
 serde_rusqlite = "~0"
+serde_yaml = "~0"
 
 [profile.release]
 strip = true

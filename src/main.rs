@@ -24,8 +24,14 @@
 extern crate serde_derive;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate eyre;
 
-use actix_web::{web, App, HttpServer, Responder};
+use actix_web::{
+    web::{self, Path},
+    App, HttpServer, Responder,
+};
+use req_res::Response;
 use rusqlite::Connection;
 use std::{
     collections::HashMap,
@@ -46,20 +52,29 @@ lazy_static! {
     pub static ref GLOBAL_MAP: RwLock<HashMap<String, Db>> = RwLock::new(HashMap::new());
 }
 
-async fn handle_query(query: web::Json<req_res::Request>) -> impl Responder {
+async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>) -> impl Responder {
     let read_lock_guard = GLOBAL_MAP.read().unwrap();
     let map = read_lock_guard.deref();
-    let db_conf = map.get("bubbu").unwrap();
-    let db_lock = &db_conf.sqlite;
-    let mut db_lock_guard = db_lock.lock().unwrap();
-    let db = db_lock_guard.deref_mut();
+    let db_conf = map.get(db_name.as_str());
+    match db_conf {
+        Some(db_conf) => {
+            let db_lock = &db_conf.sqlite;
+            let mut db_lock_guard = db_lock.lock().unwrap();
+            let db = db_lock_guard.deref_mut();
 
-    let result = logic::process(db, query.deref()).unwrap();
+            let result = logic::process(db, query.deref()).unwrap();
 
-    drop(db_lock_guard);
-    drop(read_lock_guard);
+            drop(db_lock_guard);
+            drop(read_lock_guard);
 
-    result
+            result
+        }
+        None => Response {
+            results: None,
+            req_idx: Some(-1),
+            message: Some(format!("Unknown database '{}'", db_name.as_str())),
+        },
+    }
 }
 
 fn get_sqlite_version() -> String {
@@ -70,7 +85,7 @@ fn get_sqlite_version() -> String {
     version
 }
 
-// curl -X POST -H "Content-Type: application/json" -d '{"transaction": [{"query": "SELECT * FROM TBL"},{"query": "SELECT * FROM TBL"}]}' http://localhost:12321/query
+// curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!("SQLite version: {}", get_sqlite_version());
@@ -80,7 +95,7 @@ async fn main() -> std::io::Result<()> {
     compose_db_map(&cli);
 
     // println!("{:#?}", GLOBAL_MAP.read().unwrap().get("bubbu"));
-    HttpServer::new(|| App::new().route("/query", web::post().to(handle_query)))
+    HttpServer::new(|| App::new().route("/db/{db_name}", web::post().to(handle_query)))
         .bind(format!("{}:{}", (&cli).bind_host, (&cli).port))?
         .run()
         .await
