@@ -27,6 +27,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate eyre;
 
+use actix_files::Files;
 use actix_web::{
     web::{self, Path},
     App, HttpServer, Responder,
@@ -94,9 +95,19 @@ async fn main() -> std::io::Result<()> {
 
     compose_db_map(&cli);
 
-    // println!("{:#?}", GLOBAL_MAP.read().unwrap().get("bubbu"));
-    HttpServer::new(|| App::new().route("/db/{db_name}", web::post().to(handle_query)))
-        .bind(format!("{}:{}", (&cli).bind_host, (&cli).port))?
+    let dir = cli.serve_dir.clone();
+
+    let app_lambda = move || {
+        let dir = dir.clone();
+        let mut a = App::new().route("/db/{db_name}", web::post().to(handle_query));
+        if dir.is_some() {
+            a = a.service(Files::new("/", dir.unwrap()));
+        };
+        return a;
+    };
+
+    HttpServer::new(app_lambda)
+        .bind(format!("{}:{}", cli.bind_host, cli.port))?
         .run()
         .await
 }
