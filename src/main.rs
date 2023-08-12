@@ -79,10 +79,11 @@ async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>)
 }
 
 fn get_sqlite_version() -> String {
-    let conn: Connection = Connection::open("database.db").unwrap();
+    let conn: Connection = Connection::open_in_memory().unwrap();
     let version: String = conn
         .query_row("SELECT sqlite_version()", [], |row| row.get(0))
         .unwrap();
+    let _ = conn.close();
     version
 }
 
