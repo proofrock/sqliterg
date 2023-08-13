@@ -21,11 +21,13 @@
 // SOFTWARE.
 
 use eyre::Result;
-use rusqlite::{types::Value, Connection, Transaction};
+use rusqlite::{types::Value, Connection, ToSql, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
-use serde_rusqlite::to_params_named; // test serde_json option in Cargo.toml
 
-use crate::req_res::{self, ReqTransactionItem, Response, ResponseItem};
+use crate::{
+    commons::{prepend_column, NamedParamsContainer},
+    req_res::{self, ReqTransactionItem, Response, ResponseItem},
+};
 
 fn val_db2val_json(val: Value) -> JsonValue {
     match val {
@@ -35,6 +37,16 @@ fn val_db2val_json(val: Value) -> JsonValue {
         Value::Text(v) => json!(v),
         Value::Blob(v) => json!(v),
     }
+}
+
+fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContainer {
+    let mut named_params: Vec<(String, Box<dyn ToSql>)> = Vec::new();
+
+    params
+        .iter()
+        .for_each(|(k, v)| named_params.push((prepend_column(k), Box::new(v.clone()))));
+
+    NamedParamsContainer::from(named_params)
 }
 
 // TODO queries cannot have a valuesBatch
@@ -54,8 +66,8 @@ fn do_query(
     let mut rows = match params_ref {
         Some(p) => {
             let map = p.as_object().unwrap();
-            let params = to_params_named(&map).unwrap(); // TODO manage the error!
-            stmt.query(params.to_slice().as_slice())?
+            let params = calc_named_params(map); // TODO manage the error!
+            stmt.query(params.slice().as_slice())?
         }
         None => stmt.query([])?,
     };
@@ -82,8 +94,8 @@ fn do_statement(
     let changed_rows = match params_ref {
         Some(p) => {
             let map = p.as_object().unwrap();
-            let params = to_params_named(&map).unwrap(); // TODO manage the error!
-            stmt.execute(params.to_slice().as_slice())?
+            let params = calc_named_params(&map); // TODO manage the error!
+            stmt.execute(params.slice().as_slice())?
         }
         None => stmt.execute([])?,
     };
@@ -101,8 +113,8 @@ fn do_statement_batch(
         // if there are both values and values_batch, values goes first
         Some(p) => {
             let map = p.as_object().unwrap();
-            let params = to_params_named(&map).unwrap(); // TODO manage the error!
-            let changed_rows = stmt.execute(params.to_slice().as_slice())?;
+            let params = calc_named_params(&map);
+            let changed_rows = stmt.execute(params.slice().as_slice())?;
             ret.push(changed_rows);
         }
         None => (),
@@ -111,8 +123,8 @@ fn do_statement_batch(
         match params {
             Some(p) => {
                 let map = p.as_object().unwrap();
-                let params = to_params_named(&map).unwrap(); // TODO manage the error!
-                let changed_rows = stmt.execute(params.to_slice().as_slice())?;
+                let params = calc_named_params(&map);
+                let changed_rows = stmt.execute(params.slice().as_slice())?;
                 ret.push(changed_rows);
             }
             None => continue,

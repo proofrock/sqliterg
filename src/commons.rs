@@ -20,6 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::borrow::Borrow;
+
+// General utils
+
+pub fn prepend_column(str: &String) -> String {
+    let mut ret = String::from(":");
+    ret.push_str(str);
+    return ret;
+}
+
 // https://github.com/serde-rs/serde/issues/1030#issuecomment-522278006
 pub fn default_as_false() -> bool {
     false
@@ -27,4 +37,22 @@ pub fn default_as_false() -> bool {
 
 pub fn default_as_true() -> bool {
     true
+}
+
+// Utils to convert serde structs to slices accepted by rusqlite as named params
+pub struct NamedParamsContainer(Vec<(String, Box<dyn rusqlite::types::ToSql>)>);
+
+impl NamedParamsContainer {
+    pub fn slice(&self) -> Vec<(&str, &dyn rusqlite::types::ToSql)> {
+        self.0
+            .iter()
+            .map(|el| (el.0.as_str(), el.1.borrow()))
+            .collect()
+    }
+}
+
+impl From<Vec<(String, Box<dyn rusqlite::types::ToSql>)>> for NamedParamsContainer {
+    fn from(src: Vec<(String, Box<dyn rusqlite::types::ToSql>)>) -> Self {
+        Self(src)
+    }
 }
