@@ -90,7 +90,7 @@ fn get_sqlite_version() -> String {
 // curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("SQLite version: {}", get_sqlite_version());
+    println!("{} v{}. based on SQLite v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"), get_sqlite_version());
 
     let cli = commandline::parse_cli();
 
