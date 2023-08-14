@@ -20,15 +20,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::path::Path;
-use std::sync::Mutex;
+use std::{collections::HashMap, path::Path, sync::Mutex};
 
 use rusqlite::Connection;
 
 use crate::commandline::AppConfig;
-use crate::db_config::parse_dbconf;
-use crate::db_config::DbConfig;
-use crate::GLOBAL_MAP;
+use crate::db_config::{parse_dbconf, DbConfig};
 
 #[derive(Debug)]
 pub struct Db {
@@ -50,7 +47,8 @@ fn to_yaml_path(path: &String) -> String {
     String::from(yaml_path.to_str().unwrap())
 }
 
-pub fn compose_db_map(cl: &AppConfig) {
+pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
+    let mut db_map = HashMap::new();
     for db in &cl.db {
         let conn = Connection::open(&db).unwrap();
 
@@ -60,9 +58,7 @@ pub fn compose_db_map(cl: &AppConfig) {
             sqlite: Mutex::new(conn),
         };
 
-        GLOBAL_MAP
-            .write()
-            .unwrap()
-            .insert(to_base_name(&db), db_cfg);
+        db_map.insert(to_base_name(&db), db_cfg);
     }
+    db_map
 }

@@ -23,8 +23,6 @@
 #[macro_use]
 extern crate serde_derive;
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate eyre;
 
 use actix_files::Files;
@@ -37,7 +35,7 @@ use rusqlite::Connection;
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::RwLock,
+    sync::OnceLock,
 };
 
 pub mod commandline;
@@ -49,13 +47,10 @@ pub mod req_res;
 
 use crate::main_config::{compose_db_map, Db};
 
-lazy_static! {
-    pub static ref GLOBAL_MAP: RwLock<HashMap<String, Db>> = RwLock::new(HashMap::new());
-}
+static DB_MAP: OnceLock<HashMap<String, Db>> = OnceLock::new();
 
 async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>) -> impl Responder {
-    let read_lock_guard = GLOBAL_MAP.read().unwrap();
-    let map = read_lock_guard.deref();
+    let map = DB_MAP.get().unwrap();
     let db_conf = map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
@@ -66,7 +61,6 @@ async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>)
             let result = logic::process(db, query.deref()).unwrap();
 
             drop(db_lock_guard);
-            drop(read_lock_guard);
 
             result
         }
@@ -94,7 +88,7 @@ async fn main() -> std::io::Result<()> {
 
     let cli = commandline::parse_cli();
 
-    compose_db_map(&cli);
+    let _ = DB_MAP.set(compose_db_map(&cli));
 
     let dir = cli.serve_dir.clone();
 
