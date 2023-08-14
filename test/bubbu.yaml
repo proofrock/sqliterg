@@ -26,8 +26,5 @@ storedStatements:
     sql: SELECT * FROM TBL 
   - id: Q2
     sql: INSERT INTO TBL VALUES (:id, :val)
-# initStatements:
-#   - CREATE TABLE AUTH (USER TEXT PRIMARY KEY, PASSWORD TEXT)
-#   - INSERT INTO AUTH VALUES ('myUser1', 'myCoolPassword')
-#   - CREATE TABLE TEMP (ID INT PRIMARY KEY, VAL TEXT)
-#   - INSERT INTO TEMP (ID, VAL) VALUES (1, 'ONE'), (4, 'FOUR')
+initStatements:
+  - CREATE TABLE TBL (ID INT PRIMARY KEY, VAL TEXT)

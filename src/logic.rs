@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::DerefMut};
 
 use eyre::Result;
 use rusqlite::{types::Value, Connection, ToSql, Transaction};
@@ -29,6 +29,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use crate::{
     commons::{prepend_column, NamedParamsContainer},
     req_res::{self, ReqTransactionItem, Response, ResponseItem},
+    DB_MAP,
 };
 
 fn val_db2val_json(val: Value) -> JsonValue {
@@ -207,4 +208,26 @@ pub fn process(
             }
         }
     })
+}
+
+pub fn do_init() -> Result<()> {
+    for el in DB_MAP.get().unwrap().iter() {
+        let init_stats_opt = &el.1.conf.init_statements;
+        if init_stats_opt.is_none() {
+            continue;
+        }
+
+        let db_lock = &el.1.sqlite;
+        let mut db_lock_guard = db_lock.lock().unwrap();
+        let db = db_lock_guard.deref_mut();
+
+        let tx = db.transaction()?;
+
+        for sql in init_stats_opt.as_ref().unwrap().iter() {
+            tx.execute(sql, [])?;
+        }
+
+        tx.commit()?; // TODO rollback on error is implied?
+    }
+    Ok(())
 }

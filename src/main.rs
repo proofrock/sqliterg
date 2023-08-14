@@ -32,11 +32,7 @@ use actix_web::{
 };
 use req_res::Response;
 use rusqlite::Connection;
-use std::{
-    collections::HashMap,
-    ops::DerefMut,
-    sync::OnceLock,
-};
+use std::{collections::HashMap, ops::DerefMut, panic, sync::OnceLock};
 
 pub mod commandline;
 pub mod commons;
@@ -45,7 +41,10 @@ mod logic;
 pub mod main_config;
 pub mod req_res;
 
-use crate::main_config::{compose_db_map, Db};
+use crate::{
+    logic::do_init,
+    main_config::{compose_db_map, Db},
+};
 
 static DB_MAP: OnceLock<HashMap<String, Db>> = OnceLock::new();
 
@@ -86,11 +85,21 @@ fn get_sqlite_version() -> String {
 // curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("{} v{}. based on SQLite v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"), get_sqlite_version());
+    println!(
+        "{} v{}. based on SQLite v{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        get_sqlite_version()
+    );
 
     let cli = commandline::parse_cli();
 
     let _ = DB_MAP.set(compose_db_map(&cli));
+
+    match do_init() {
+        Ok(()) => (),
+        Err(e) => panic!("{}", e.to_string()),
+    }
 
     let dir = cli.serve_dir.clone();
 

@@ -3,6 +3,7 @@
 URL="http://localhost:12321/db/bubbu"
 REQUESTS=50000
 
+rm -rf test/*.db*
 pkill -x ws4sqlite
 pkill -x sqliterg
 
@@ -21,3 +22,4 @@ rm Profile.class
 cd ..
 
 pkill -x sqliterg
+rm -rf test/*.db*

@@ -3,6 +3,7 @@
 URL="http://localhost:12321/bubbu"
 REQUESTS=50000
 
+rm -rf test/*.db*
 pkill -x ws4sqlite
 pkill -x sqliterg
 
@@ -25,3 +26,4 @@ cd ..
 
 pkill -x ws4sqlite
 rm -f ws4sqlite
+rm -rf test/*.db*
