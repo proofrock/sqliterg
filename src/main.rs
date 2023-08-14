@@ -34,7 +34,7 @@ use req_res::Response;
 use rusqlite::Connection;
 use std::{
     collections::HashMap,
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     sync::OnceLock,
 };
 
@@ -54,11 +54,13 @@ async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>)
     let db_conf = map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
+            let stored_statements = &db_conf.stored_statements;
+
             let db_lock = &db_conf.sqlite;
             let mut db_lock_guard = db_lock.lock().unwrap();
             let db = db_lock_guard.deref_mut();
 
-            let result = logic::process(db, query.deref()).unwrap();
+            let result = logic::process(db, &query, stored_statements).unwrap();
 
             drop(db_lock_guard);
 

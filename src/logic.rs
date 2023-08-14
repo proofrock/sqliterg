@@ -20,6 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::collections::HashMap;
+
 use eyre::Result;
 use rusqlite::{types::Value, Connection, ToSql, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
@@ -53,12 +55,21 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
 fn do_query(
     tx: &Transaction,
     req: &ReqTransactionItem,
+    stored_statements: &HashMap<String, String>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
     if req.values_batch.is_some() {
         return Err(eyre!("A query cannot have a valuesBatch argument"));
     }
 
-    let sql = req.query.as_ref().unwrap();
+    let mut sql = req.query.as_ref().unwrap();
+    if sql.starts_with('#') {
+        let _sql = stored_statements.get(sql.strip_prefix("#").unwrap());
+        match _sql {
+            Some(_s) => sql = _s,
+            None => return Err(eyre!("Stored statement '{}' not found", sql)),
+        }
+    }
+
     let stmt = tx.prepare(&sql)?;
     let column_names = stmt.column_names();
     let mut stmt = tx.prepare(&sql)?; // FIXME statement is calculated two times :-(
@@ -83,69 +94,74 @@ fn do_query(
     Ok((Some(response), None, None))
 }
 
-// rusqlite cannot use "real" batching, maybe it doesn't even make sense in sqlite
 fn do_statement(
     tx: &Transaction,
     req: &ReqTransactionItem,
+    stored_statements: &HashMap<String, String>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let sql = req.statement.as_ref().unwrap();
-    let mut stmt = tx.prepare(&sql)?;
-    let params_ref: Option<&JsonValue> = req.values.as_ref();
-    let changed_rows = match params_ref {
-        Some(p) => {
-            let map = p.as_object().unwrap();
-            let params = calc_named_params(&map); // TODO manage the error!
-            stmt.execute(params.slice().as_slice())?
+    let mut sql = req.statement.as_ref().unwrap();
+    if sql.starts_with('#') {
+        let _sql = stored_statements.get(sql.strip_prefix("#").unwrap());
+        match _sql {
+            Some(_s) => sql = _s,
+            None => return Err(eyre!("Stored statement '{}' not found", sql)),
         }
-        None => stmt.execute([])?,
-    };
-    Ok((None, Some(changed_rows), None))
-}
+    }
 
-fn do_statement_batch(
-    tx: &Transaction,
-    req: &ReqTransactionItem,
-) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let sql = req.statement.as_ref().unwrap();
     let mut stmt = tx.prepare(&sql)?;
     let mut ret = vec![];
-    match req.values.as_ref() {
-        // if there are both values and values_batch, values goes first
-        Some(p) => {
-            let map = p.as_object().unwrap();
-            let params = calc_named_params(&map);
-            let changed_rows = stmt.execute(params.slice().as_slice())?;
-            ret.push(changed_rows);
-        }
-        None => (),
-    };
-    for params in req.values_batch.as_ref().unwrap() {
-        match params {
+    if req.values.is_some() || req.values_batch.is_some() {
+        match req.values.as_ref() {
+            // if there are both values and values_batch, values goes first
             Some(p) => {
                 let map = p.as_object().unwrap();
                 let params = calc_named_params(&map);
                 let changed_rows = stmt.execute(params.slice().as_slice())?;
                 ret.push(changed_rows);
             }
-            None => continue,
+            None => (),
         };
+        match req.values_batch.as_ref() {
+            Some(params_list) => {
+                for params in params_list.iter() {
+                    match params {
+                        Some(p) => {
+                            let map = p.as_object().unwrap();
+                            let params = calc_named_params(&map);
+                            let changed_rows = stmt.execute(params.slice().as_slice())?;
+                            ret.push(changed_rows);
+                        }
+                        None => continue,
+                    };
+                }
+            }
+            None => (),
+        };
+    } else {
+        let changed_rows = stmt.execute([])?;
+        ret.push(changed_rows);
     }
-    Ok((None, None, Some(ret)))
+
+    match req.values_batch.as_ref() {
+        Some(_) => Ok((None, None, Some(ret))),
+        None => Ok((None, Some(*ret.get(0).unwrap()), None)),
+    }
 }
 
-pub fn process(conn: &mut Connection, query: &req_res::Request) -> Result<Response> {
+pub fn process(
+    conn: &mut Connection,
+    query: &req_res::Request,
+    stored_statements: &HashMap<String, String>,
+) -> Result<Response> {
     let tx = conn.transaction()?;
     let mut results = vec![];
     let mut failed = None;
 
     for (idx, trx_item) in query.transaction.iter().enumerate() {
         let ret = match trx_item.query {
-            Some(_) => do_query(&tx, &trx_item),
+            Some(_) => do_query(&tx, &trx_item, stored_statements),
             None => match trx_item.statement {
-                Some(_) => match trx_item.values_batch {
-                    Some(_) => do_statement_batch(&tx, &trx_item),
-                    None => do_statement(&tx, &trx_item),
-                },
+                Some(_) => do_statement(&tx, &trx_item, stored_statements),
                 None => Err(eyre!("Neither a query nor a statement is specified")),
             },
         };

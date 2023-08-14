@@ -31,7 +31,10 @@ use crate::db_config::{parse_dbconf, DbConfig};
 pub struct Db {
     pub path: String,
     pub conf: DbConfig,
+
+    // calculated
     pub sqlite: Mutex<Connection>,
+    pub stored_statements: HashMap<String, String>,
 }
 
 fn to_base_name(path: &String) -> String {
@@ -50,12 +53,24 @@ fn to_yaml_path(path: &String) -> String {
 pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
     let mut db_map = HashMap::new();
     for db in &cl.db {
+        let dbconf = parse_dbconf(to_yaml_path(&db)).unwrap();
         let conn = Connection::open(&db).unwrap();
+
+        let mut stored_statements = HashMap::new();
+        match &dbconf.stored_statements {
+            Some(ss) => {
+                for el in ss.iter() {
+                    stored_statements.insert(el.id.clone(), el.sql.clone());
+                }
+            },
+            None => (),
+        }
 
         let db_cfg = Db {
             path: db.clone(),
-            conf: parse_dbconf(to_yaml_path(&db)).unwrap(),
+            conf: dbconf,
             sqlite: Mutex::new(conn),
+            stored_statements,
         };
 
         db_map.insert(to_base_name(&db), db_cfg);
