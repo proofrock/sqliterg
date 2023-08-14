@@ -11,8 +11,7 @@ actix-files = "~0"
 actix-web = "~4"
 clap = { version = "~4", features = [ "derive" ] }
 eyre = "~0"
-lazy_static = "~1"
-rusqlite = { git  = "https://github.com/rusqlite/rusqlite", features = ["bundled", "serde_json"] }
+rusqlite = { git  = "https://github.com/rusqlite/rusqlite", features = ["serde_json"] }
 # rusqlite = { version = "~0", features = ["bundled", "serde_json"] }
 # rusqlite = { version = "~0", features = ["serde_json"] }
 serde = { version = "~1", features = ["derive"] }
