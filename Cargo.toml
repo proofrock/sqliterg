@@ -21,13 +21,13 @@ serde_yaml = "~0"
 
 [profile.dev]
 opt-level = 0
-overflow-checks = false
+overflow-checks = true
 strip = false
 lto = false
 
 [profile.release]
 opt-level = 3
-overflow-checks = true
+overflow-checks = false
 strip = true
 lto = true
 
