@@ -26,13 +26,9 @@ extern crate serde_derive;
 extern crate eyre;
 
 use actix_files::Files;
-use actix_web::{
-    web::{self, Path},
-    App, HttpServer, Responder,
-};
-use req_res::Response;
+use actix_web::{web, App, HttpServer};
 use rusqlite::Connection;
-use std::{collections::HashMap, ops::DerefMut, panic, sync::OnceLock};
+use std::{collections::HashMap, panic, sync::OnceLock};
 
 pub mod commandline;
 pub mod commons;
@@ -42,36 +38,11 @@ pub mod main_config;
 pub mod req_res;
 
 use crate::{
-    logic::do_init,
+    logic::{do_init, handler},
     main_config::{compose_db_map, Db},
 };
 
 static DB_MAP: OnceLock<HashMap<String, Db>> = OnceLock::new();
-
-async fn handle_query(query: web::Json<req_res::Request>, db_name: Path<String>) -> impl Responder {
-    let map = DB_MAP.get().unwrap();
-    let db_conf = map.get(db_name.as_str());
-    match db_conf {
-        Some(db_conf) => {
-            let stored_statements = &db_conf.stored_statements;
-
-            let db_lock = &db_conf.sqlite;
-            let mut db_lock_guard = db_lock.lock().unwrap();
-            let db = db_lock_guard.deref_mut();
-
-            let result = logic::process(db, &query, stored_statements).unwrap();
-
-            drop(db_lock_guard);
-
-            result
-        }
-        None => Response {
-            results: None,
-            req_idx: Some(-1),
-            message: Some(format!("Unknown database '{}'", db_name.as_str())),
-        },
-    }
-}
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
@@ -105,7 +76,7 @@ async fn main() -> std::io::Result<()> {
 
     let app_lambda = move || {
         let dir = dir.clone();
-        let mut a = App::new().route("/db/{db_name}", web::post().to(handle_query));
+        let mut a = App::new().route("/db/{db_name}", web::post().to(handler));
         if dir.is_some() {
             a = a.service(Files::new("/", dir.unwrap()));
         };

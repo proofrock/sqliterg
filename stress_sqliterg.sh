@@ -1,7 +1,7 @@
 #!/bin/bash
 
 URL="http://localhost:12321/db/bubbu"
-REQUESTS=50000
+REQUESTS=5000
 
 rm -rf test/*.db*
 pkill -x ws4sqlite

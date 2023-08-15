@@ -69,6 +69,13 @@ public class Profile {
                         System.err.write(buffer, 0, bytesRead);
                     }
                 }
+                try (InputStream errorStream = connection.getInputStream()) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = errorStream.read(buffer)) != -1) {
+                        System.err.write(buffer, 0, bytesRead);
+                    }
+                }
             }
             connection.disconnect();
         } catch (Exception e) {
