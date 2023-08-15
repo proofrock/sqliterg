@@ -27,4 +27,4 @@ storedStatements:
   - id: Q2
     sql: INSERT INTO TBL VALUES (:id, :val)
 initStatements:
-  - CREATE TABLE TBL (ID INT PRIMARY KEY, VAL TEXT)
+  - CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)
