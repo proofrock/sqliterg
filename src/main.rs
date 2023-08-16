@@ -26,9 +26,9 @@ extern crate serde_derive;
 extern crate eyre;
 
 use actix_files::Files;
-use actix_web::{web, App, HttpServer};
+use actix_web::{web::{self, Data}, App, HttpServer};
 use rusqlite::Connection;
-use std::{collections::HashMap, panic, sync::OnceLock};
+use std::panic;
 
 pub mod commandline;
 pub mod commons;
@@ -39,10 +39,8 @@ pub mod req_res;
 
 use crate::{
     logic::handler,
-    main_config::{compose_db_map, Db},
+    main_config::compose_db_map,
 };
-
-static DB_MAP: OnceLock<HashMap<String, Db>> = OnceLock::new();
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
@@ -63,8 +61,8 @@ async fn main() -> std::io::Result<()> {
     let cli = commandline::parse_cli();
 
     let db_map = compose_db_map(&cli);
-    let _ = match db_map {
-        Ok(db_map) => DB_MAP.set(db_map),
+    let db_map = match db_map {
+        Ok(db_map) => Data::new(db_map),
         Err(e) => panic!("{}", e.to_string()),
     };
 
@@ -72,7 +70,7 @@ async fn main() -> std::io::Result<()> {
 
     let app_lambda = move || {
         let dir = dir.clone();
-        let mut a = App::new().route("/db/{db_name}", web::post().to(handler));
+        let mut a = App::new().app_data(db_map.clone()).route("/db/{db_name}", web::post().to(handler));
         if dir.is_some() {
             a = a.service(Files::new("/", dir.unwrap()));
         };
