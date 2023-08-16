@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, path::Path};
 
 // General utils
 
@@ -37,6 +37,11 @@ pub fn default_as_false() -> bool {
 
 pub fn default_as_true() -> bool {
     true
+}
+
+pub fn file_exists(path: &String) -> bool {
+    let path = Path::new(path);
+    Path::new(path).exists()
 }
 
 // Utils to convert serde structs to slices accepted by rusqlite as named params

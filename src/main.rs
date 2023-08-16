@@ -38,7 +38,7 @@ pub mod main_config;
 pub mod req_res;
 
 use crate::{
-    logic::{do_init, handler},
+    logic::handler,
     main_config::{compose_db_map, Db},
 };
 
@@ -46,11 +46,8 @@ static DB_MAP: OnceLock<HashMap<String, Db>> = OnceLock::new();
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
-    let version: String = conn
-        .query_row("SELECT sqlite_version()", [], |row| row.get(0))
-        .unwrap();
-    let _ = conn.close();
-    version
+    conn.query_row("SELECT sqlite_version()", [], |row| row.get(0))
+        .unwrap()
 }
 
 // curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
@@ -65,12 +62,11 @@ async fn main() -> std::io::Result<()> {
 
     let cli = commandline::parse_cli();
 
-    let _ = DB_MAP.set(compose_db_map(&cli));
-
-    match do_init() {
-        Ok(()) => (),
+    let db_map = compose_db_map(&cli);
+    let _ = match db_map {
+        Ok(db_map) => DB_MAP.set(db_map),
         Err(e) => panic!("{}", e.to_string()),
-    }
+    };
 
     let dir = cli.serve_dir.clone();
 

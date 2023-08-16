@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{collections::HashMap, ops::DerefMut};
+use std::collections::HashMap;
 
 use actix_web::{
     web::{self, Path},
@@ -225,13 +225,12 @@ pub async fn handler(
     let db_conf = map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
-            let db_lock = &db_conf.sqlite;
-            let mut db_lock_guard = db_lock.lock().unwrap();
-            let conn = db_lock_guard.deref_mut();
+            let _ = &db_conf.mutex.lock(); // curiously, without this mutex it's 50% slower
+            let mut conn = Connection::open(db_conf.path.clone()).unwrap();
 
-            let result = process(conn, http_req, &db_conf.stored_statements).unwrap();
+            let result = process(&mut conn, http_req, &db_conf.stored_statements).unwrap();
 
-            drop(db_lock_guard);
+            let _ = conn.close();
 
             result
         }
@@ -241,26 +240,4 @@ pub async fn handler(
             message: Some(format!("Unknown database '{}'", db_name.as_str())),
         },
     }
-}
-
-pub fn do_init() -> Result<()> {
-    for el in DB_MAP.get().unwrap().iter() {
-        let init_stats_opt = &el.1.conf.init_statements;
-        if init_stats_opt.is_none() {
-            continue;
-        }
-
-        let db_lock = &el.1.sqlite;
-        let mut db_lock_guard = db_lock.lock().unwrap();
-        let db = db_lock_guard.deref_mut();
-
-        let tx = db.transaction()?;
-
-        for sql in init_stats_opt.as_ref().unwrap().iter() {
-            tx.execute(sql, [])?;
-        }
-
-        tx.commit()?; // TODO rollback on error is implied?
-    }
-    Ok(())
 }

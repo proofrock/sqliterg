@@ -23,8 +23,10 @@
 use std::{collections::HashMap, path::Path, sync::Mutex};
 
 use rusqlite::Connection;
+use eyre::Result;
 
 use crate::commandline::AppConfig;
+use crate::commons::file_exists;
 use crate::db_config::{parse_dbconf, DbConfig};
 
 #[derive(Debug)]
@@ -33,7 +35,7 @@ pub struct Db {
     pub conf: DbConfig,
 
     // calculated
-    pub sqlite: Mutex<Connection>,
+    pub mutex: Mutex<()>,
     pub stored_statements: HashMap<String, String>,
 }
 
@@ -50,11 +52,27 @@ fn to_yaml_path(path: &String) -> String {
     String::from(yaml_path.to_str().unwrap())
 }
 
-pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
+pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     let mut db_map = HashMap::new();
     for db in &cl.db {
         let dbconf = parse_dbconf(to_yaml_path(&db)).unwrap();
-        let conn = Connection::open(&db).unwrap();
+
+        if !file_exists(&db) {
+            match &dbconf.init_statements {
+                Some(vec) => {
+                    let mut conn = Connection::open(&db).unwrap();
+    
+                    let tx = conn.transaction()?;
+            
+                    for sql in vec.iter() {
+                        tx.execute(sql, [])?;
+                    }
+            
+                    tx.commit()?; // TODO rollback on error is implied?
+                }
+                None => (),
+            }
+        }
 
         let mut stored_statements = HashMap::new();
         match &dbconf.stored_statements {
@@ -69,11 +87,11 @@ pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
         let db_cfg = Db {
             path: db.clone(),
             conf: dbconf,
-            sqlite: Mutex::new(conn),
+            mutex: Mutex::new(()),
             stored_statements,
         };
 
         db_map.insert(to_base_name(&db), db_cfg);
     }
-    db_map
+    Ok(db_map)
 }

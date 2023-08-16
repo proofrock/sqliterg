@@ -1,7 +1,7 @@
 #!/bin/bash
 
 URL="http://localhost:12321/bubbu"
-REQUESTS=5000
+REQUESTS=50000
 
 rm -rf test/*.db*
 pkill -x ws4sqlite
@@ -11,7 +11,7 @@ wget -q https://github.com/proofrock/ws4sqlite/releases/download/v0.15.0/ws4sqli
 tar xzf ws4sqlite-v0.15.0-linux-amd64.tar.gz &> /dev/null
 rm -f ws4sqlite-v0.15.0-linux-amd64.tar.gz
 
-./ws4sqlite --db test/bubbu.db &> /dev/null &
+./ws4sqlite --db test/bubbu.db &
 
 cd profiler
 javac Profile.java

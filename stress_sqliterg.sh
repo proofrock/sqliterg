@@ -1,14 +1,14 @@
 #!/bin/bash
 
 URL="http://localhost:12321/db/bubbu"
-REQUESTS=5000
+REQUESTS=50000
 
 rm -rf test/*.db*
 pkill -x ws4sqlite
 pkill -x sqliterg
 
 cargo build --release
-target/release/sqliterg --db test/bubbu.db &> /dev/null &
+target/release/sqliterg --db test/bubbu.db &
 
 cd profiler
 javac Profile.java
