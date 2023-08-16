@@ -8,8 +8,8 @@ import java.util.concurrent.Executors;
 
 public class Profile {
     private static final int NUM_THREADS = 8;
-    private static final String JSON = "{\"transaction\":[{\"query\":\"SELECT * FROM TBL\"}]}";
-    // private static final String JSON = "{\"transaction\":[{\"statement\":\"DELETE FROM TBL\"},{\"query\":\"SELECT * FROM TBL\"},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"values\":{\"id\":0,\"val\":\"zero\"}},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"valuesBatch\":[{\"id\":1,\"val\":\"uno\"},{\"id\":2,\"val\":\"due\"}]},{\"noFail\":true,\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val, 1)\",\"valuesBatch\":[{\"id\":1,\"val\":\"uno\"},{\"id\":2,\"val\":\"due\"}]},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"valuesBatch\":[{\"id\":3,\"val\":\"tre\"}]},{\"query\":\"SELECT * FROM TBL WHERE ID=:id\",\"values\":{\"id\":1}},{\"statement\":\"DELETE FROM TBL\"}]}";
+    // private static final String JSON = "{\"transaction\":[{\"query\":\"SELECT * FROM TBL\"}]}";
+    private static final String JSON = "{\"transaction\":[{\"statement\":\"DELETE FROM TBL\"},{\"query\":\"SELECT * FROM TBL\"},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"values\":{\"id\":0,\"val\":\"zero\"}},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"valuesBatch\":[{\"id\":1,\"val\":\"uno\"},{\"id\":2,\"val\":\"due\"}]},{\"noFail\":true,\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val, 1)\",\"valuesBatch\":[{\"id\":1,\"val\":\"uno\"},{\"id\":2,\"val\":\"due\"}]},{\"statement\":\"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)\",\"valuesBatch\":[{\"id\":3,\"val\":\"tre\"}]},{\"query\":\"SELECT * FROM TBL WHERE ID=:id\",\"values\":{\"id\":1}},{\"statement\":\"DELETE FROM TBL\"}]}";
     private static byte[] JSON_BYTES;
     private static int JSON_LEN;
 
