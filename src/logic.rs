@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::DerefMut};
 
 use actix_web::{
     web::{self, Path},
@@ -225,12 +225,11 @@ pub async fn handler(
     let db_conf = db_map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
-            let _ = &db_conf.mutex.lock(); // curiously, without this mutex it's 50% slower
-            let mut conn = Connection::open(db_conf.path.clone()).unwrap();
+            let db_lock = &db_conf.mutex;
+            let mut db_lock_guard = db_lock.lock().unwrap();
+            let conn = db_lock_guard.deref_mut();
 
-            let result = process(&mut conn, http_req, &db_conf.stored_statements).unwrap();
-
-            let _ = conn.close();
+            let result = process(conn, http_req, &db_conf.stored_statements).unwrap();
 
             result
         }

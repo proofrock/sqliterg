@@ -35,7 +35,7 @@ pub struct Db {
     pub conf: DbConfig,
 
     // calculated
-    pub mutex: Mutex<()>,
+    pub mutex: Mutex<Connection>,
     pub stored_statements: HashMap<String, String>,
 }
 
@@ -60,7 +60,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         if !file_exists(&db) {
             match &dbconf.init_statements {
                 Some(vec) => {
-                    let mut conn = Connection::open(&db).unwrap();
+                    let mut conn = Connection::open(&db)?;
     
                     let tx = conn.transaction()?;
             
@@ -87,7 +87,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         let db_cfg = Db {
             path: db.clone(),
             conf: dbconf,
-            mutex: Mutex::new(()),
+            mutex: Mutex::new(Connection::open(&db)?),
             stored_statements,
         };
 
