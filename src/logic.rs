@@ -59,13 +59,22 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
 fn check_stored_stmt<'a>(
     sql: &'a String,
     stored_statements: &'a HashMap<String, String>,
+    use_only_stored_statements: bool,
 ) -> Result<&'a String> {
     match sql.strip_prefix("#") {
         Some(s) => match stored_statements.get(&s.to_string()) {
-            Some(s) => return Ok(s),
-            None => return Err(eyre!("Stored statement '{}' not found", sql)),
+            Some(s) => Ok(s),
+            None => Err(eyre!("Stored statement '{}' not found", sql)),
         },
-        None => return Ok(sql),
+        None => {
+            if use_only_stored_statements {
+                Err(eyre!(
+                    "UseOnlyStoredStatement set but a stored statement wasn't used"
+                ))
+            } else {
+                Ok(sql)
+            }
+        }
     }
 }
 
@@ -142,6 +151,7 @@ fn process(
     conn: &mut Connection,
     http_req: web::Json<req_res::Request>,
     stored_statements: &HashMap<String, String>,
+    use_only_stored_statements: bool,
 ) -> Result<Response> {
     let tx = conn.transaction()?;
 
@@ -157,7 +167,11 @@ fn process(
                 values,
             } => {
                 _no_fail = *no_fail;
-                do_query(&tx, check_stored_stmt(query, stored_statements)?, values)
+                let sql = check_stored_stmt(query, stored_statements, use_only_stored_statements);
+                match sql {
+                    Ok(sql) => do_query(&tx, &sql, values),
+                    Err(e) => Result::Err(e),
+                }
             }
             ReqTransactionItem::Stmt {
                 no_fail,
@@ -166,12 +180,12 @@ fn process(
                 values_batch,
             } => {
                 _no_fail = *no_fail;
-                do_statement(
-                    &tx,
-                    check_stored_stmt(statement, stored_statements)?,
-                    values,
-                    values_batch,
-                )
+                let sql =
+                    check_stored_stmt(statement, stored_statements, use_only_stored_statements);
+                match sql {
+                    Ok(sql) => do_statement(&tx, &sql, values, values_batch),
+                    Err(e) => Result::Err(e),
+                }
             }
         };
 
@@ -230,7 +244,13 @@ pub async fn handler(
             let mut db_lock_guard = db_lock.lock().unwrap();
             let conn = db_lock_guard.deref_mut();
 
-            let result = process(conn, http_req, &db_conf.stored_statements).unwrap();
+            let result = process(
+                conn,
+                http_req,
+                &db_conf.stored_statements,
+                db_conf.conf.use_only_stored_statements,
+            )
+            .unwrap();
 
             result
         }
