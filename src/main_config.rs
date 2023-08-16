@@ -22,8 +22,8 @@
 
 use std::{collections::HashMap, path::Path, sync::Mutex};
 
-use rusqlite::Connection;
 use eyre::Result;
+use rusqlite::Connection;
 
 use crate::commandline::AppConfig;
 use crate::commons::file_exists;
@@ -61,13 +61,13 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             match &dbconf.init_statements {
                 Some(vec) => {
                     let mut conn = Connection::open(&db)?;
-    
+
                     let tx = conn.transaction()?;
-            
+
                     for sql in vec.iter() {
                         tx.execute(sql, [])?;
                     }
-            
+
                     tx.commit()?; // TODO rollback on error is implied?
                 }
                 None => (),
@@ -80,14 +80,24 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
                 for el in ss.iter() {
                     stored_statements.insert(el.id.clone(), el.sql.clone());
                 }
-            },
+            }
             None => (),
+        }
+
+        let conn = Connection::open(&db)?;
+
+        if dbconf.read_only {
+            conn.execute("PRAGMA query_only = true", [])?;
+        }
+
+        if !dbconf.disable_wal_mode {
+            conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
         }
 
         let db_cfg = Db {
             path: db.clone(),
             conf: dbconf,
-            mutex: Mutex::new(Connection::open(&db)?),
+            mutex: Mutex::new(conn),
             stored_statements,
         };
 

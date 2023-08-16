@@ -32,8 +32,8 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 use crate::{
     commons::{prepend_column, NamedParamsContainer},
-    req_res::{self, ReqTransactionItem, Response, ResponseItem},
     main_config::Db,
+    req_res::{self, ReqTransactionItem, Response, ResponseItem},
 };
 
 fn val_db2val_json(val: Value) -> JsonValue {
@@ -144,6 +144,7 @@ fn process(
     stored_statements: &HashMap<String, String>,
 ) -> Result<Response> {
     let tx = conn.transaction()?;
+
     let mut results = vec![];
     let mut failed = None;
 
@@ -218,7 +219,7 @@ fn process(
 }
 
 pub async fn handler(
-    db_map:  web::Data<HashMap<String, Db>>,
+    db_map: web::Data<HashMap<String, Db>>,
     http_req: web::Json<req_res::Request>,
     db_name: Path<String>,
 ) -> impl Responder {
