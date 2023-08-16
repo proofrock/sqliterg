@@ -20,7 +20,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use actix_web::{body::BoxBody, http::header::ContentType, HttpRequest, HttpResponse, Responder};
+use actix_web::{
+    body::BoxBody,
+    http::{header::ContentType, StatusCode},
+    HttpRequest, HttpResponse, Responder,
+};
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value as JsonValue;
@@ -86,6 +90,8 @@ pub struct Response {
     pub req_idx: Option<isize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    #[serde(skip_serializing)]
+    pub status_code: u16,
 }
 
 impl Responder for Response {
@@ -94,8 +100,8 @@ impl Responder for Response {
     fn respond_to(self, _req: &HttpRequest) -> HttpResponse<Self::Body> {
         let body = serde_json::to_string(&self).unwrap();
 
-        // Create response and set content type
         HttpResponse::Ok()
+            .status(StatusCode::from_u16(self.status_code).unwrap())
             .content_type(ContentType::json())
             .body(body)
     }

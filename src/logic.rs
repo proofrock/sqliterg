@@ -219,6 +219,7 @@ fn process(
                 results: None,
                 req_idx: Some(f.0 as isize),
                 message: Some(f.1),
+                status_code: 400,
             }
         }
         None => {
@@ -227,6 +228,7 @@ fn process(
                 results: Some(results),
                 req_idx: None,
                 message: None,
+                status_code: 200,
             }
         }
     })
@@ -258,6 +260,7 @@ pub async fn handler(
             results: None,
             req_idx: Some(-1),
             message: Some(format!("Unknown database '{}'", db_name.as_str())),
+            status_code: 404,
         },
     }
 }
