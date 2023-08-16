@@ -23,15 +23,19 @@
 use std::{collections::HashMap, ops::DerefMut};
 
 use actix_web::{
+    http::header::Header,
     web::{self, Path},
-    Responder,
+    HttpRequest, Responder,
 };
+use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
 use rusqlite::{types::Value, Connection, ToSql, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 use crate::{
+    auth::process_auth,
     commons::{prepend_column, NamedParamsContainer},
+    db_config::DbConfig,
     main_config::Db,
     req_res::{self, ReqTransactionItem, Response, ResponseItem},
 };
@@ -151,23 +155,41 @@ fn process(
     conn: &mut Connection,
     http_req: web::Json<req_res::Request>,
     stored_statements: &HashMap<String, String>,
-    use_only_stored_statements: bool,
+    dbconf: &DbConfig,
+    auth_header: &Option<Authorization<Basic>>,
 ) -> Result<Response> {
+    if dbconf.auth.is_some() {
+        if !process_auth(
+            dbconf.auth.as_ref().unwrap(),
+            conn,
+            &http_req.credentials,
+            auth_header,
+        ) {
+            return Ok(Response {
+                results: None,
+                req_idx: Some(-1),
+                message: Some(String::from("Authorization failed")),
+                status_code: 401,
+            });
+        }
+    }
+
     let tx = conn.transaction()?;
 
     let mut results = vec![];
     let mut failed = None;
 
     for (idx, trx_item) in http_req.transaction.iter().enumerate() {
-        let mut _no_fail: bool;
+        let tmp_no_fail: bool;
         let ret = match trx_item {
             ReqTransactionItem::Query {
                 no_fail,
                 query,
                 values,
             } => {
-                _no_fail = *no_fail;
-                let sql = check_stored_stmt(query, stored_statements, use_only_stored_statements);
+                tmp_no_fail = *no_fail;
+                let sql =
+                    check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
                 match sql {
                     Ok(sql) => do_query(&tx, &sql, values),
                     Err(e) => Result::Err(e),
@@ -179,9 +201,12 @@ fn process(
                 values,
                 values_batch,
             } => {
-                _no_fail = *no_fail;
-                let sql =
-                    check_stored_stmt(statement, stored_statements, use_only_stored_statements);
+                tmp_no_fail = *no_fail;
+                let sql = check_stored_stmt(
+                    statement,
+                    stored_statements,
+                    dbconf.use_only_stored_statements,
+                );
                 match sql {
                     Ok(sql) => do_statement(&tx, &sql, values, values_batch),
                     Err(e) => Result::Err(e),
@@ -189,7 +214,7 @@ fn process(
             }
         };
 
-        if !ret.is_ok() && !_no_fail {
+        if !ret.is_ok() && !tmp_no_fail {
             failed = Some((idx, ret.unwrap_err().to_string()));
             break;
         }
@@ -235,10 +260,17 @@ fn process(
 }
 
 pub async fn handler(
+    req: HttpRequest,
     db_map: web::Data<HashMap<String, Db>>,
-    http_req: web::Json<req_res::Request>,
+    body: web::Json<req_res::Request>,
     db_name: Path<String>,
 ) -> impl Responder {
+    let auth = Authorization::<Basic>::parse(&req);
+    let auth = match auth {
+        Ok(a) => Some(a),
+        Err(_) => None,
+    };
+
     let db_conf = db_map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
@@ -246,13 +278,8 @@ pub async fn handler(
             let mut db_lock_guard = db_lock.lock().unwrap();
             let conn = db_lock_guard.deref_mut();
 
-            let result = process(
-                conn,
-                http_req,
-                &db_conf.stored_statements,
-                db_conf.conf.use_only_stored_statements,
-            )
-            .unwrap();
+            let result =
+                process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap();
 
             result
         }

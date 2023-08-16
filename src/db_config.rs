@@ -27,8 +27,10 @@ use crate::commons::default_as_false;
 
 #[derive(Debug, Deserialize)]
 pub enum AuthMode {
-    HTTP,
-    INLINE,
+    #[serde(rename = "HTTP_BASIC")]
+    HttpBasic,
+    #[serde(rename = "INLINE")]
+    Inline,
 }
 
 #[derive(Debug, Deserialize)]
