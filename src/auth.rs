@@ -21,37 +21,63 @@
 // SOFTWARE.
 
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
-use rusqlite::Connection;
+use rusqlite::{named_params, Connection};
 
 use crate::{
+    commons::{equal_case_insensitive, sha256},
     db_config::Auth,
     db_config::{AuthMode, Credentials},
     req_res::ReqCredentials,
 };
 
 fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>) -> bool {
-    true
+    let mut reg_pass: Option<String> = None;
+    let mut reg_pass_format = 0; // 0=plaintext, 1=hashed
+    for c in creds.iter() {
+        // TODO hash table lookup
+        if equal_case_insensitive(&user, &c.user) {
+            match &c.password {
+                Some(p) => reg_pass = Some(p.clone()),
+                None => match &c.hashed_password {
+                    Some(hp) => {
+                        reg_pass = Some(hp.clone());
+                        reg_pass_format = 1;
+                    }
+                    None => (),
+                },
+            }
+            break;
+        }
+    }
+    match reg_pass {
+        Some(p) => {
+            if reg_pass_format == 0 {
+                p == password
+            } else {
+                let shap = sha256(password);
+                equal_case_insensitive(&p, &shap)
+            }
+        }
+        None => false,
+    }
 }
 
 fn auth_by_query(user: String, password: String, query: &String, conn: &mut Connection) -> bool {
-    true
+    let res = conn.query_row(
+        &query,
+        named_params! {":user": user, ":password":password},
+        |_| Ok(()),
+    );
+    res.is_ok()
 }
 
-fn creds_from_http(
-    auth_config: &Auth,
-    conn: &mut Connection,
-    auth_header: &Authorization<Basic>,
-) -> (String, String) {
+fn creds_from_http(auth_header: &Authorization<Basic>) -> (String, String) {
     let user = auth_header.as_ref().user_id();
     let password = auth_header.as_ref().password().unwrap();
     (String::from(user), String::from(password))
 }
 
-fn creds_from_inline(
-    auth_config: &Auth,
-    conn: &mut Connection,
-    auth_inline: &ReqCredentials,
-) -> (String, String) {
+fn creds_from_inline(auth_inline: &ReqCredentials) -> (String, String) {
     let user = auth_inline.user.as_str();
     let password = auth_inline.password.as_str();
     (String::from(user), String::from(password))
@@ -65,11 +91,11 @@ pub fn process_auth(
 ) -> bool {
     let (user, password) = match auth_config.mode {
         AuthMode::HttpBasic => match auth_header {
-            Some(auth_header) => creds_from_http(auth_config, conn, auth_header),
+            Some(auth_header) => creds_from_http(auth_header),
             None => return false,
         },
         AuthMode::Inline => match auth_inline {
-            Some(auth_inline) => creds_from_inline(auth_config, conn, auth_inline),
+            Some(auth_inline) => creds_from_inline(auth_inline),
             None => return false,
         },
     };

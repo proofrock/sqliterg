@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 use std::{borrow::Borrow, path::Path};
+use ring::digest::{Context, SHA256};
 
 // General utils
 
@@ -42,6 +43,26 @@ pub fn default_as_true() -> bool {
 pub fn file_exists(path: &String) -> bool {
     let path = Path::new(path);
     Path::new(path).exists()
+}
+
+pub fn sha256(input: String) -> String {
+    let digest = {
+        let mut context = Context::new(&SHA256);
+        context.update(input.as_bytes()); // UTF-8
+        context.finish()
+    };
+
+    let hash_hex = digest // TODO do shorter
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{:02x}", byte))
+        .collect::<String>();
+
+    hash_hex
+}
+
+pub fn equal_case_insensitive(s1: &String, s2: &String) -> bool {
+    s1.to_lowercase() == s2.to_lowercase()
 }
 
 // Utils to convert serde structs to slices accepted by rusqlite as named params
