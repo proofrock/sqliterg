@@ -35,7 +35,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 use crate::{
     auth::process_auth,
-    commons::{prepend_column, NamedParamsContainer},
+    commons::{check_stored_stmt, prepend_column, NamedParamsContainer},
     db_config::DbConfig,
     main_config::Db,
     req_res::{self, ReqTransactionItem, Response, ResponseItem},
@@ -59,28 +59,6 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
         .for_each(|(k, v)| named_params.push((prepend_column(k), Box::new(v.clone()))));
 
     NamedParamsContainer::from(named_params)
-}
-
-fn check_stored_stmt<'a>(
-    sql: &'a String,
-    stored_statements: &'a HashMap<String, String>,
-    use_only_stored_statements: bool,
-) -> Result<&'a String> {
-    match sql.strip_prefix("^") {
-        Some(s) => match stored_statements.get(&s.to_string()) {
-            Some(s) => Ok(s),
-            None => Err(eyre!("Stored statement '{}' not found", sql)),
-        },
-        None => {
-            if use_only_stored_statements {
-                Err(eyre!(
-                    "UseOnlyStoredStatement set but a stored statement wasn't used"
-                ))
-            } else {
-                Ok(sql)
-            }
-        }
-    }
 }
 
 fn do_query(
@@ -125,7 +103,7 @@ fn do_statement(
         params.push(values.as_ref().unwrap());
     }
     if values_batch.is_some() {
-        for p in values_batch.as_ref().unwrap().iter() {
+        for p in values_batch.as_ref().unwrap() {
             params.push(p);
         }
     }
@@ -144,7 +122,7 @@ fn do_statement(
         _ => {
             let mut stmt = tx.prepare(&sql)?;
             let mut ret = vec![];
-            for p in params.iter() {
+            for p in params {
                 let map = p.as_object().unwrap();
                 let params = calc_named_params(&map);
                 let changed_rows = stmt.execute(params.slice().as_slice())?;
@@ -174,6 +152,7 @@ fn process(
                 req_idx: Some(-1),
                 message: Some("Authorization failed".to_string()),
                 status_code: 401,
+                success: false,
             });
         }
     }
@@ -248,7 +227,8 @@ fn process(
                 results: None,
                 req_idx: Some(f.0 as isize),
                 message: Some(f.1),
-                status_code: 400,
+                status_code: 500,
+                success: false,
             }
         }
         None => {
@@ -258,6 +238,7 @@ fn process(
                 req_idx: None,
                 message: None,
                 status_code: 200,
+                success: true,
             }
         }
     })
@@ -293,6 +274,7 @@ pub async fn handler(
             req_idx: Some(-1),
             message: Some(format!("Unknown database '{}'", db_name.as_str())),
             status_code: 404,
+            success: false,
         },
     }
 }

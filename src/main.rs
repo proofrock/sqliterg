@@ -34,11 +34,12 @@ pub mod auth;
 pub mod commandline;
 pub mod commons;
 pub mod db_config;
-mod logic;
+pub mod logic;
+pub mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{logic::handler, main_config::compose_db_map};
+use crate::main_config::compose_db_map;
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
@@ -68,7 +69,10 @@ async fn main() -> std::io::Result<()> {
 
     let app_lambda = move || {
         let dir = dir.clone();
-        let mut a = App::new().app_data(db_map.clone()).service(handler);
+        let mut a = App::new()
+            .app_data(db_map.clone())
+            .service(logic::handler)
+            .service(macros::handler); // TODO add macros only if there are macros
         if dir.is_some() {
             a = a.service(Files::new("/", dir.unwrap()));
         };

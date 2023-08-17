@@ -2,7 +2,7 @@
 - Removed encryption feature (it was standard-based but very custom)
 - URL to contact for POST is now `http://&lt;host&gt;:&lt;port&gt;/db/&lt;db_name&gt` (note the `/db/`)
 - Read-only mode is performed via the `query_only` PRAGMA
-- Even if the database is read only, it's possible to perform init statements
+- Even if the database is read only, it's possible to perform init macros
 - Stored Statements are now prefixed with `^`, not `#`, because it can be used in macros that are defined in the YAML file, where `#` would be a comment
 - ScheduledTasks are replaced with the new macro and backup subsystems
     - Avoid use of scheduler logic, as it is very language-dependent and may be different from cron, with which the user is probably familiar

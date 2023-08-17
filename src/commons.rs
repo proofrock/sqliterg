@@ -20,8 +20,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use eyre::Result;
 use ring::digest::{Context, SHA256};
-use std::{borrow::Borrow, path::Path};
+use std::{borrow::Borrow, collections::HashMap, path::Path};
 
 // General utils
 
@@ -57,6 +58,28 @@ pub fn sha256(input: String) -> String {
 
 pub fn equal_case_insensitive(s1: &String, s2: &String) -> bool {
     s1.to_lowercase() == s2.to_lowercase()
+}
+
+pub fn check_stored_stmt<'a>(
+    sql: &'a String,
+    stored_statements: &'a HashMap<String, String>,
+    use_only_stored_statements: bool,
+) -> Result<&'a String> {
+    match sql.strip_prefix("^") {
+        Some(s) => match stored_statements.get(&s.to_string()) {
+            Some(s) => Ok(s),
+            None => Err(eyre!("Stored statement '{}' not found", sql)),
+        },
+        None => {
+            if use_only_stored_statements {
+                Err(eyre!(
+                    "UseOnlyStoredStatement set but a stored statement wasn't used"
+                ))
+            } else {
+                Ok(sql)
+            }
+        }
+    }
 }
 
 // Utils to convert serde structs to slices accepted by rusqlite as named params

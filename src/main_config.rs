@@ -28,6 +28,7 @@ use rusqlite::Connection;
 use crate::commandline::AppConfig;
 use crate::commons::file_exists;
 use crate::db_config::{parse_dbconf, DbConfig};
+use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
 
 #[derive(Debug)]
 pub struct Db {
@@ -37,6 +38,7 @@ pub struct Db {
     // calculated
     pub mutex: Mutex<Connection>,
     pub stored_statements: HashMap<String, String>,
+    pub macros: HashMap<String, Vec<String>>,
 }
 
 fn to_base_name(path: &String) -> String {
@@ -57,21 +59,21 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     for db in &cl.db {
         let dbconf = parse_dbconf(to_yaml_path(&db)).unwrap();
 
-        if !file_exists(&db) {
-            // TODO init stuff
-        }
+        let is_new_db = !file_exists(&db);
 
-        let mut stored_statements = HashMap::new();
-        match &dbconf.stored_statements {
-            Some(ss) => {
-                for el in ss.iter() {
-                    stored_statements.insert(el.id.clone(), el.sql.clone());
-                }
-            }
-            None => (),
-        }
+        let stored_statements = parse_stored_statements(&dbconf);
 
-        let conn = Connection::open(&db)?;
+        let macros_def = parse_macros(&dbconf, &stored_statements)?;
+
+        let mut conn = Connection::open(&db)?;
+
+        exec_init_startup_macros(
+            is_new_db,
+            dbconf.init_macros.clone(),
+            dbconf.startup_macros.clone(),
+            &macros_def,
+            &mut conn,
+        )?;
 
         if dbconf.read_only {
             conn.execute("PRAGMA query_only = true", [])?;
@@ -86,6 +88,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             conf: dbconf,
             mutex: Mutex::new(conn),
             stored_statements,
+            macros: macros_def,
         };
 
         db_map.insert(to_base_name(&db), db_cfg);

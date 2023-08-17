@@ -33,7 +33,7 @@ use crate::{
 fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>) -> bool {
     let mut reg_pass: Option<String> = None;
     let mut reg_pass_format = 0; // 0=plaintext, 1=hashed
-    for c in creds.iter() {
+    for c in creds {
         // TODO hash table lookup
         if equal_case_insensitive(&user, &c.user) {
             match &c.password {

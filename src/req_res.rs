@@ -92,6 +92,8 @@ pub struct Response {
     pub message: Option<String>,
     #[serde(skip_serializing)]
     pub status_code: u16,
+    #[serde(skip_serializing)]
+    pub success: bool,
 }
 
 impl Responder for Response {
