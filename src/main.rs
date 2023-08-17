@@ -30,6 +30,7 @@ use actix_web::{web::{self, Data}, App, HttpServer};
 use rusqlite::Connection;
 use std::panic;
 
+pub mod auth;
 pub mod commandline;
 pub mod commons;
 pub mod db_config;
