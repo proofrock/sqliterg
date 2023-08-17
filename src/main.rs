@@ -26,7 +26,7 @@ extern crate serde_derive;
 extern crate eyre;
 
 use actix_files::Files;
-use actix_web::{web::{self, Data}, App, HttpServer};
+use actix_web::{web::Data, App, HttpServer};
 use rusqlite::Connection;
 use std::panic;
 
@@ -38,10 +38,7 @@ mod logic;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{
-    logic::handler,
-    main_config::compose_db_map,
-};
+use crate::{logic::handler, main_config::compose_db_map};
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
@@ -71,7 +68,7 @@ async fn main() -> std::io::Result<()> {
 
     let app_lambda = move || {
         let dir = dir.clone();
-        let mut a = App::new().app_data(db_map.clone()).route("/db/{db_name}", web::post().to(handler));
+        let mut a = App::new().app_data(db_map.clone()).service(handler);
         if dir.is_some() {
             a = a.service(Files::new("/", dir.unwrap()));
         };

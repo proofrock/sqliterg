@@ -24,6 +24,7 @@ use std::{collections::HashMap, ops::DerefMut};
 
 use actix_web::{
     http::header::Header,
+    post,
     web::{self, Path},
     HttpRequest, Responder,
 };
@@ -262,6 +263,7 @@ fn process(
     })
 }
 
+#[post("/db/{db_name}")]
 pub async fn handler(
     req: HttpRequest,
     db_map: web::Data<HashMap<String, Db>>,
