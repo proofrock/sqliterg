@@ -171,7 +171,7 @@ fn process(
             return Ok(Response {
                 results: None,
                 req_idx: Some(-1),
-                message: Some(String::from("Authorization failed")),
+                message: Some("Authorization failed".to_string()),
                 status_code: 401,
             });
         }

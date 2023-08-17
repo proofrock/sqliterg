@@ -20,13 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{borrow::Borrow, path::Path};
 use ring::digest::{Context, SHA256};
+use std::{borrow::Borrow, path::Path};
 
 // General utils
 
 pub fn prepend_column(str: &String) -> String {
-    let mut ret = String::from(":");
+    let mut ret = ":".to_string();
     ret.push_str(str);
     return ret;
 }
@@ -52,13 +52,7 @@ pub fn sha256(input: String) -> String {
         context.finish()
     };
 
-    let hash_hex = digest // TODO do shorter
-        .as_ref()
-        .iter()
-        .map(|byte| format!("{:02x}", byte))
-        .collect::<String>();
-
-    hash_hex
+    hex::encode(digest.as_ref())
 }
 
 pub fn equal_case_insensitive(s1: &String, s2: &String) -> bool {

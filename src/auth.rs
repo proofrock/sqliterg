@@ -71,18 +71,6 @@ fn auth_by_query(user: String, password: String, query: &String, conn: &mut Conn
     res.is_ok()
 }
 
-fn creds_from_http(auth_header: &Authorization<Basic>) -> (String, String) {
-    let user = auth_header.as_ref().user_id();
-    let password = auth_header.as_ref().password().unwrap();
-    (String::from(user), String::from(password))
-}
-
-fn creds_from_inline(auth_inline: &ReqCredentials) -> (String, String) {
-    let user = auth_inline.user.as_str();
-    let password = auth_inline.password.as_str();
-    (String::from(user), String::from(password))
-}
-
 pub fn process_auth(
     auth_config: &Auth,
     conn: &mut Connection,
@@ -91,11 +79,14 @@ pub fn process_auth(
 ) -> bool {
     let (user, password) = match auth_config.mode {
         AuthMode::HttpBasic => match auth_header {
-            Some(auth_header) => creds_from_http(auth_header),
+            Some(auth_header) => (
+                auth_header.as_ref().user_id().to_string(),
+                auth_header.as_ref().password().unwrap().to_string(),
+            ),
             None => return false,
         },
         AuthMode::Inline => match auth_inline {
-            Some(auth_inline) => creds_from_inline(auth_inline),
+            Some(auth_inline) => (auth_inline.user.clone(), auth_inline.password.clone()),
             None => return false,
         },
     };

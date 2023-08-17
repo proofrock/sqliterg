@@ -41,7 +41,7 @@ pub struct Db {
 
 fn to_base_name(path: &String) -> String {
     let path = Path::new(&path);
-    String::from(path.file_stem().unwrap().to_str().unwrap())
+    path.file_stem().unwrap().to_str().unwrap().to_string()
 }
 
 fn to_yaml_path(path: &String) -> String {
@@ -49,7 +49,7 @@ fn to_yaml_path(path: &String) -> String {
     let file_stem: &str = path.file_stem().unwrap().to_str().unwrap();
     let yaml_file_name = format!("{file_stem}.yaml");
     let yaml_path = path.with_file_name(yaml_file_name);
-    String::from(yaml_path.to_str().unwrap())
+    yaml_path.to_str().unwrap().to_string()
 }
 
 pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {

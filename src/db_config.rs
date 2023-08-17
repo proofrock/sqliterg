@@ -103,6 +103,5 @@ pub fn parse_dbconf(filename: String) -> Result<DbConfig, Box<dyn std::error::Er
     let mut content = String::new();
     file.read_to_string(&mut content)?;
 
-    let config: DbConfig = serde_yaml::from_str(&content)?;
-    Ok(config)
+    Ok(serde_yaml::from_str(&content)?)
 }

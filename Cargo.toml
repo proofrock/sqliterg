@@ -12,6 +12,7 @@ actix-web = "~4"
 actix-web-httpauth = "~0"
 clap = { version = "~4", features = [ "derive" ] }
 eyre = "~0"
+hex = "~0"
 ring = "~0"
 # rusqlite = { git  = "https://github.com/rusqlite/rusqlite", features = ["serde_json"] }
 # rusqlite = { version = "~0", features = ["bundled", "serde_json"] }
