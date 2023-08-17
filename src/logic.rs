@@ -87,9 +87,12 @@ fn do_query(
     sql: &String,
     values: &Option<JsonValue>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let stmt = tx.prepare(&sql)?;
-    let column_names = (&stmt).column_names();
-    let mut stmt = tx.prepare(&sql)?; // FIXME statement is calculated two times :-(
+    let mut stmt = tx.prepare(&sql)?;
+    let column_names: Vec<String> = stmt
+        .column_names()
+        .iter()
+        .map(|cn| cn.to_string())
+        .collect();
     let mut rows = match values {
         Some(p) => {
             let map = p.as_object().unwrap();
