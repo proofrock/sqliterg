@@ -58,20 +58,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         let dbconf = parse_dbconf(to_yaml_path(&db)).unwrap();
 
         if !file_exists(&db) {
-            match &dbconf.init_statements {
-                Some(vec) => {
-                    let mut conn = Connection::open(&db)?;
-
-                    let tx = conn.transaction()?;
-
-                    for sql in vec.iter() {
-                        tx.execute(sql, [])?;
-                    }
-
-                    tx.commit()?; // TODO rollback on error is implied?
-                }
-                None => (),
-            }
+            // TODO init stuff
         }
 
         let mut stored_statements = HashMap::new();

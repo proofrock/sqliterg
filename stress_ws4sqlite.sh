@@ -1,9 +1,11 @@
 #!/bin/bash
 
 URL="http://localhost:12321/bubbu"
-REQUESTS=50000
+REQUESTS=20000
 
 rm -rf test/*.db*
+sqlite3 test/bubbu.db "CREATE TABLE TBL (ID INT, VAL TEXT)"
+
 pkill -x ws4sqlite
 pkill -x sqliterg
 

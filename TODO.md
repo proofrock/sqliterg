@@ -1,0 +1,6 @@
+- Macros (https://host:port/macro/db/macro_name)
+- CORS
+- Transient connections (at db level)
+- Backups (https://host:port/backup/db)
+- Add descriptive error messages on parsing
+- Tests!

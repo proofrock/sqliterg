@@ -23,7 +23,7 @@
 use std::fs::File;
 use std::io::Read;
 
-use crate::commons::default_as_false;
+use crate::commons::{default_as_false, default_as_true};
 
 #[derive(Debug, Deserialize)]
 pub enum AuthMode {
@@ -51,22 +51,18 @@ pub struct Credentials {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ScheduledTask {
-    #[serde(rename = "hashedPassword")]
-    pub schedule: Option<String>,
-    #[serde(rename = "doVacuum")]
-    #[serde(default = "default_as_false")]
-    pub do_vacuum: bool,
-    #[serde(rename = "doBackup")]
-    #[serde(default = "default_as_false")]
-    pub do_backup: bool,
+pub struct Macro {
+    pub id: String,
+    pub statements: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Backup {
     #[serde(rename = "backupTemplate")]
-    pub backup_template: Option<String>,
+    pub backup_template: String,
     #[serde(rename = "numFiles")]
-    pub num_files: Option<i32>,
-    pub statements: Option<Vec<String>>,
+    pub num_files: u32,
     #[serde(rename = "atStartup")]
-    #[serde(default = "default_as_false")]
     pub at_startup: bool,
 }
 
@@ -79,8 +75,9 @@ pub struct DbConfig {
     #[serde(rename = "readOnly")]
     #[serde(default = "default_as_false")]
     pub read_only: bool,
-    #[serde(rename = "scheduledTasks")]
-    pub scheduled_tasks: Option<Vec<ScheduledTask>>,
+    #[serde(rename = "persistentConnection")]
+    #[serde(default = "default_as_true")]
+    pub persistent_connection: bool,
     #[serde(rename = "corsOrigin")]
     pub cors_origin: Option<String>,
     #[serde(rename = "useOnlyStoredStatements")]
@@ -88,8 +85,12 @@ pub struct DbConfig {
     pub use_only_stored_statements: bool,
     #[serde(rename = "storedStatements")]
     pub stored_statements: Option<Vec<StoredStatement>>,
-    #[serde(rename = "initStatements")]
-    pub init_statements: Option<Vec<String>>,
+    pub macros: Option<Vec<Macro>>,
+    #[serde(rename = "initMacros")]
+    pub init_macros: Option<Vec<String>>,
+    #[serde(rename = "startupMacros")]
+    pub startup_macros: Option<Vec<String>>,
+    pub backup: Option<Backup>,
 }
 
 #[derive(Debug, Deserialize)]

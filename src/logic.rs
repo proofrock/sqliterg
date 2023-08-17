@@ -66,7 +66,7 @@ fn check_stored_stmt<'a>(
     stored_statements: &'a HashMap<String, String>,
     use_only_stored_statements: bool,
 ) -> Result<&'a String> {
-    match sql.strip_prefix("#") {
+    match sql.strip_prefix("^") {
         Some(s) => match stored_statements.get(&s.to_string()) {
             Some(s) => Ok(s),
             None => Err(eyre!("Stored statement '{}' not found", sql)),
