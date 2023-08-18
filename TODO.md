@@ -1,5 +1,4 @@
 - CORS
-- Transient connections (at db level)
 - Add descriptive error messages on parsing
 - Tests!
 - In-mem databases

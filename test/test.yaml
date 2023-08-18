@@ -8,7 +8,6 @@ auth:
   #     hashedPassword: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
 disableWALMode: false
 readOnly: false
-persistentConnection: true
 # corsOrigin: https://myownsite.com
 storedStatements:
   - id: Q1
@@ -27,7 +26,7 @@ macros:
       - ^Q3
       - CREATE TABLE IF NOT EXISTS AUTH (USER TEXT, PASS TEXT)
       - DELETE FROM AUTH
-      - INSERT INTO AUTH VALUES ('myUser1', 'ciao')
+      - INSERT INTO AUTH VALUES ('myUser', 'ciao')
 initMacros:
   - M1
 startupMacros:
