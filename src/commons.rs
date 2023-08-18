@@ -23,7 +23,12 @@
 use chrono::{Datelike, Local, Timelike};
 use eyre::Result;
 use ring::digest::{Context, SHA256};
-use std::{borrow::Borrow, collections::HashMap, path::Path};
+use std::{
+    borrow::Borrow,
+    collections::HashMap,
+    fs::{read_dir, remove_file},
+    path::Path,
+};
 
 // General utils
 
@@ -71,6 +76,31 @@ pub fn now() -> String {
     let minute = current_datetime.minute();
 
     format!("{:04}{:02}{:02}-{:02}{:02}", year, month, day, hour, minute)
+}
+
+pub fn delete_old_files(file_sample: &str, files_to_keep: usize) -> Result<()> {
+    let path = Path::new(file_sample);
+    let dir = path.parent().map(|parent| parent.to_path_buf()).unwrap();
+
+    let mut entries: Vec<_> = read_dir(dir)?.filter_map(|entry| entry.ok()).collect();
+
+    entries.sort_by(|a, b| {
+        let a_meta = a.metadata().unwrap();
+        let b_meta = b.metadata().unwrap();
+        a_meta.modified().unwrap().cmp(&b_meta.modified().unwrap())
+    });
+
+    let num_entries = entries.len();
+
+    if num_entries > files_to_keep {
+        for entry in entries.iter().take(num_entries - files_to_keep) {
+            if entry.path().is_file() {
+                remove_file(entry.path())?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub fn check_stored_stmt<'a>(

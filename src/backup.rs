@@ -29,7 +29,7 @@ use actix_web::{
 };
 
 use crate::{
-    commons::{file_exists, now},
+    commons::{delete_old_files, file_exists, now},
     main_config::Db,
     req_res::Response,
 };
@@ -51,8 +51,18 @@ pub async fn handler(
                     let mut db_lock_guard = db_lock.lock().unwrap();
                     let conn = db_lock_guard.deref_mut();
 
-                    match conn.execute("BACKUP TO ?1", [file]) {
-                        Ok(_) => Response::new_ok(vec![]),
+                    match conn.execute("BACKUP TO ?1", [&file]) {
+                        Ok(_) => match delete_old_files(&file, bkp.num_files) {
+                            Ok(_) => Response::new_ok(vec![]),
+                            Err(e) => Response::new_err(
+                                500,
+                                -1,
+                                format!(
+                                    "Database backed up but error in deleting old files: {}",
+                                    e.to_string()
+                                ),
+                            ),
+                        },
                         Err(e) => Response::new_err(500, -1, e.to_string()),
                     }
                 }

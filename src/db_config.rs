@@ -61,7 +61,7 @@ pub struct Backup {
     #[serde(rename = "backupTemplate")]
     pub backup_template: String,
     #[serde(rename = "numFiles")]
-    pub num_files: u32,
+    pub num_files: usize,
     #[serde(rename = "atStartup")]
     pub at_startup: bool,
 }
