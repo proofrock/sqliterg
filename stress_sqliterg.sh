@@ -1,16 +1,16 @@
 #!/bin/bash
 
-URL="http://localhost:12321/db/bubbu"
+URL="http://localhost:12321/db/test"
 REQUESTS=20000
 
 rm -rf test/*.db*
-sqlite3 test/bubbu.db "CREATE TABLE TBL (ID INT, VAL TEXT)"
+sqlite3 test/test.db "CREATE TABLE TBL (ID INT, VAL TEXT)"
 
 pkill -x ws4sqlite
 pkill -x sqliterg
 
 cargo build --release
-target/release/sqliterg --db test/bubbu.db &
+target/release/sqliterg --db test/test.db &
 
 cd profiler
 javac Profile.java
