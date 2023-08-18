@@ -66,8 +66,8 @@ pub struct MacrosEndpoint {
 
 #[derive(Debug, Deserialize)]
 pub struct Backup {
-    #[serde(rename = "backupTemplate")]
-    pub backup_template: String,
+    #[serde(rename = "backupDir")]
+    pub backup_dir: String,
     #[serde(rename = "numFiles")]
     pub num_files: usize,
     #[serde(rename = "atStartup")]
@@ -84,7 +84,6 @@ pub struct BackupEndpoint {
 
 #[derive(Debug, Deserialize)]
 pub struct DbConfig {
-    pub version: u8,
     pub auth: Option<Auth>,
     #[serde(rename = "disableWALMode")]
     #[serde(default = "default_as_false")]
@@ -114,13 +113,33 @@ pub struct DbConfig {
     pub backup_endpoint: Option<BackupEndpoint>,
 }
 
+impl DbConfig {
+    pub fn default() -> DbConfig {
+        DbConfig {
+            auth: None,
+            disable_wal_mode: false,
+            read_only: false,
+            persistent_connection: true,
+            cors_origin: None,
+            use_only_stored_statements: false,
+            stored_statements: None,
+            macros: None,
+            init_macros: None,
+            startup_macros: None,
+            macros_endpoint: None,
+            backup: None,
+            backup_endpoint: None,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct StoredStatement {
     pub id: String,
     pub sql: String,
 }
 
-pub fn parse_dbconf(filename: String) -> Result<DbConfig, Box<dyn std::error::Error>> {
+pub fn parse_dbconf(filename: &String) -> Result<DbConfig, Box<dyn std::error::Error>> {
     let mut file = File::open(filename)?;
     let mut content = String::new();
     file.read_to_string(&mut content)?;

@@ -2,6 +2,7 @@
 - Transient connections (at db level)
 - Add descriptive error messages on parsing
 - Tests!
+- backup file template: expand '~'
 
 # To doc
 

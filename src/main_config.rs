@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use std::fs::remove_file;
 use std::{collections::HashMap, path::Path, sync::Mutex};
 
 use eyre::Result;
@@ -27,7 +28,7 @@ use rusqlite::Connection;
 
 use crate::backup::do_backup;
 use crate::commandline::AppConfig;
-use crate::commons::file_exists;
+use crate::commons::{abort, file_exists};
 use crate::db_config::{parse_dbconf, DbConfig};
 use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
 
@@ -58,7 +59,16 @@ fn to_yaml_path(path: &String) -> String {
 pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     let mut db_map = HashMap::new();
     for db in &cl.db {
-        let dbconf = parse_dbconf(to_yaml_path(&db)).unwrap();
+        let yaml = to_yaml_path(&db);
+        let dbconf = if !file_exists(&yaml) {
+            println!("File {} not found: assuming defaults", &yaml);
+            DbConfig::default()
+        } else {
+            match parse_dbconf(&yaml) {
+                Ok(dbc) => dbc,
+                Err(e) => abort(format!("Parsing YAML file {}: {}", &yaml, e.to_string())),
+            }
+        };
 
         let is_new_db = !file_exists(&db);
 
@@ -68,18 +78,23 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
 
         let mut conn = Connection::open(&db)?;
 
-        exec_init_startup_macros(
+        let res = exec_init_startup_macros(
             is_new_db,
             dbconf.init_macros.clone(),
             dbconf.startup_macros.clone(),
             &macros_def,
             &mut conn,
-        )?;
+        );
+        if res.is_err() && is_new_db {
+            let _ = conn.close();
+            let _ = remove_file(Path::new(&db));
+            return Result::Err(res.err().unwrap());
+        }
 
         match &dbconf.backup {
             Some(bkp) => {
                 if bkp.at_startup {
-                    let res = do_backup(&bkp, &conn);
+                    let res = do_backup(&bkp, &db, &conn);
                     if !res.success {
                         eprintln!("Cannot perform backup: {}", res.message.unwrap());
                     }

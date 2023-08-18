@@ -20,7 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{collections::HashMap, ops::DerefMut};
+use std::{collections::HashMap, ops::DerefMut, path::Path as SysPath};
 
 use actix_web::{
     post,
@@ -37,12 +37,36 @@ use crate::{
     req_res::{Response, Token},
 };
 
-pub fn do_backup(bkp: &Backup, conn: &Connection) -> Response {
-    let file = bkp.backup_template.replace("%s", &now());
+fn gen_bkp_file(directory: &str, filepath: &str) -> String {
+    let path = SysPath::new(directory);
+    let fpath = SysPath::new(filepath);
+    let base_name = fpath.file_stem().unwrap().to_str().unwrap();
+    let extension = fpath.extension();
+    let intermission = now();
+
+    let new_file_name = match extension {
+        Some(e) => format!("{}_{}.{}", base_name, intermission, e.to_str().unwrap()),
+        None => format!("{}_{}", base_name, intermission),
+    };
+    let new_file_path = path.join(new_file_name);
+
+    new_file_path.into_os_string().into_string().unwrap()
+}
+
+pub fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response {
+    if !file_exists(&bkp.backup_dir) {
+        return Response::new_err(
+            404,
+            -1,
+            format!("Backup dir '{}' not found", bkp.backup_dir),
+        );
+    }
+
+    let file = gen_bkp_file(&bkp.backup_dir, db_path);
     if file_exists(&file) {
         Response::new_err(409, -1, format!("File '{}' already exists", file))
     } else {
-        match conn.execute("BACKUP TO ?1", [&file]) {
+        match conn.execute("VACUUM INTO ?1", [&file]) {
             Ok(_) => match delete_old_files(&file, bkp.num_files) {
                 Ok(_) => Response::new_ok(vec![]),
                 Err(e) => Response::new_err(
@@ -59,7 +83,7 @@ pub fn do_backup(bkp: &Backup, conn: &Connection) -> Response {
     }
 }
 
-#[post("/db/{db_name}")]
+#[post("/backup/{db_name}")]
 pub async fn handler(
     db_map: web::Data<HashMap<String, Db>>,
     db_name: Path<String>,
@@ -78,7 +102,7 @@ pub async fn handler(
                     let mut db_lock_guard = db_lock.lock().unwrap();
                     let conn = db_lock_guard.deref_mut();
 
-                    do_backup(bkp, &conn)
+                    do_backup(bkp, &db_conf.path, &conn)
                 }
                 None => Response::new_err(
                     404,

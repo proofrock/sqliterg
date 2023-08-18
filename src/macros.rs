@@ -150,8 +150,9 @@ pub fn exec_init_startup_macros(
         match init_macros {
             Some(ims) => {
                 for im in ims {
-                    if !exec_macro_inner(&im, macros_def, &tx).success {
-                        result_so_far = Err(("Init", im));
+                    let res = exec_macro_inner(&im, macros_def, &tx);
+                    if !res.success {
+                        result_so_far = Err(("Init", im, res.message.unwrap()));
                         break;
                     }
                 }
@@ -164,8 +165,9 @@ pub fn exec_init_startup_macros(
         match startup_macros {
             Some(sms) => {
                 for sm in sms {
-                    if !exec_macro_inner(&sm, macros_def, &tx).success {
-                        result_so_far = Err(("Startup", sm));
+                    let res = exec_macro_inner(&sm, macros_def, &tx);
+                    if !res.success {
+                        result_so_far = Err(("Startup", sm, res.message.unwrap()));
                         break;
                     }
                 }
@@ -175,8 +177,14 @@ pub fn exec_init_startup_macros(
     }
 
     match result_so_far {
-        Ok(_) => Ok(()),
-        Err(err_elem) => Err(eyre!("{} macro '{}' failed", err_elem.0, err_elem.1)),
+        Ok(_) => match tx.commit() {
+            Ok(_) => Ok(()),
+            Err(_) => Err(eyre!("Commit failed for init/startup macro(s)")),
+        },
+        Err(er) => {
+            let _ = tx.rollback();
+            Err(eyre!("{} macro '{}' failed: {}", er.0, er.1, er.2))
+        }
     }
 }
 

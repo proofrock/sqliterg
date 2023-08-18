@@ -1,4 +1,5 @@
 test/*db*
+test/backups/*
 database.db
 *.class
 

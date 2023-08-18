@@ -28,7 +28,6 @@ extern crate eyre;
 use actix_files::Files;
 use actix_web::{web::Data, App, HttpServer};
 use rusqlite::Connection;
-use std::panic;
 
 pub mod auth;
 mod backup;
@@ -40,7 +39,9 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::main_config::compose_db_map;
+use crate::{commons::abort, main_config::compose_db_map};
+
+pub const CURRENT_PROTO_VERSION: u8 = 1;
 
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
@@ -60,10 +61,9 @@ async fn main() -> std::io::Result<()> {
 
     let cli = commandline::parse_cli();
 
-    let db_map = compose_db_map(&cli);
-    let db_map = match db_map {
+    let db_map = match compose_db_map(&cli) {
         Ok(db_map) => Data::new(db_map),
-        Err(e) => panic!("{}", e.to_string()),
+        Err(e) => abort(format!("{}", e.to_string())),
     };
 
     let dir = cli.serve_dir.clone();
@@ -81,8 +81,7 @@ async fn main() -> std::io::Result<()> {
         return a;
     };
 
-    HttpServer::new(app_lambda)
-        .bind(format!("{}:{}", cli.bind_host, cli.port))?
-        .run()
-        .await
+    let bind_addr = format!("{}:{}", cli.bind_host, cli.port);
+    println!("Listening on {}", &bind_addr);
+    HttpServer::new(app_lambda).bind(bind_addr)?.run().await
 }

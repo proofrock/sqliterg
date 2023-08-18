@@ -28,9 +28,15 @@ use std::{
     collections::HashMap,
     fs::{read_dir, remove_file},
     path::Path,
+    process::exit,
 };
 
 // General utils
+
+pub fn abort(str: String) -> ! {
+    eprintln!("FATAL: {}", str);
+    exit(1);
+}
 
 pub fn prepend_column(str: &String) -> String {
     let mut ret = ":".to_string();
@@ -78,8 +84,8 @@ pub fn now() -> String {
     format!("{:04}{:02}{:02}-{:02}{:02}", year, month, day, hour, minute)
 }
 
-pub fn delete_old_files(file_sample: &str, files_to_keep: usize) -> Result<()> {
-    let path = Path::new(file_sample);
+pub fn delete_old_files(dir: &str, files_to_keep: usize) -> Result<()> {
+    let path = Path::new(dir);
     let dir = path.parent().map(|parent| parent.to_path_buf()).unwrap();
 
     let mut entries: Vec<_> = read_dir(dir)?.filter_map(|entry| entry.ok()).collect();

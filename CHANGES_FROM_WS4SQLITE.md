@@ -7,3 +7,5 @@
 - ScheduledTasks are replaced with the new macro and backup subsystems
     - Avoid use of scheduler logic, as it is very language-dependent and may be different from cron, with which the user is probably familiar
 - The '%s' in the backup template is optional
+- The backup files' pattern is specified as a backup directory, being intended that all the files in it are subject to deletion
+- HTTP authentication is now named HTTP_BASIC (possible future JWT implementation)
