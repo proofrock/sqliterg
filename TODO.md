@@ -1,4 +1,3 @@
-- CORS
 - Add descriptive error messages on parsing
 - Tests!
 - In-mem databases

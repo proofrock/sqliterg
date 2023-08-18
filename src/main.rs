@@ -30,11 +30,12 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{
     guard,
     web::{post, scope, Data},
-    App, HttpServer,
+    App, HttpServer, Scope,
 };
 use rusqlite::Connection;
 
@@ -87,18 +88,29 @@ async fn main() -> std::io::Result<()> {
         let dir = dir.clone();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
-            let mut scope = scope(format!("/{}", db_name.clone()).as_str())
+            let mut scop: Scope = scope(format!("/{}", db_name.clone()).as_str())
                 .app_data(Data::new(db_name.clone()))
                 .app_data(Data::new(db_conf.clone()))
                 .guard(guard::Header("content-type", "application/json"))
                 .route("/exec", post().to(logic::handler));
             if db_conf.conf.backup_endpoint.is_some() {
-                scope = scope.route("/backup", post().to(backup::handler))
+                scop = scop.route("/backup", post().to(backup::handler));
             }
             if db_conf.conf.macros_endpoint.is_some() {
-                scope = scope.route("/macro/{macro_name}", post().to(macros::handler))
+                scop = scop.route("/macro/{macro_name}", post().to(macros::handler));
             }
-            a = a.service(scope);
+            match &db_conf.conf.cors_origin {
+                Some(orig) => {
+                    let mut cors = Cors::default().allowed_methods(vec!["POST"]);
+                    if orig == "*" {
+                        cors = cors.allow_any_origin();
+                    } else {
+                        cors = cors.allowed_origin(orig.as_str());
+                    }
+                    a = a.service(scop.wrap(cors))
+                }
+                None => a = a.service(scop),
+            }
         }
 
         if dir.is_some() {
