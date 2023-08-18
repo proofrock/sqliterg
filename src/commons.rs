@@ -142,6 +142,14 @@ pub fn resolve_tilde_opt(p: &Option<String>) -> Option<String> {
     }
 }
 
+pub fn split_on_first_column(input: &String) -> (String, String) {
+    let mut parts = input.splitn(2, ':');
+    let first_part = parts.next().unwrap_or("").to_string();
+    let second_part = parts.next().unwrap_or("").to_string();
+
+    (first_part, second_part)
+}
+
 // Utils to convert serde structs to slices accepted by rusqlite as named params
 pub struct NamedParamsContainer(Vec<(String, Box<dyn rusqlite::types::ToSql>)>);
 
