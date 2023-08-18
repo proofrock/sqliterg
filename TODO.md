@@ -1,7 +1,7 @@
-- Auth for macros
+- Auth for macros&backups
 - CORS
 - Transient connections (at db level)
-- Backups (https://host:port/backup/db)
+- Backups: old files deletion
 - Add descriptive error messages on parsing
 - Tests!
 

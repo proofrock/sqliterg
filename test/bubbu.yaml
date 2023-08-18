@@ -40,6 +40,6 @@ initMacros:
 startupMacros:
   - M2
 backup:
-  backupTemplate: ~/first_%s.db
+  backupTemplate: ~/first_{}.db
   numFiles: 3
   atStartup: true

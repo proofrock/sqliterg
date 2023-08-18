@@ -147,13 +147,11 @@ fn process(
             &http_req.credentials,
             auth_header,
         ) {
-            return Ok(Response {
-                results: None,
-                req_idx: Some(-1),
-                message: Some("Authorization failed".to_string()),
-                status_code: 401,
-                success: false,
-            });
+            return Ok(Response::new_err(
+                401,
+                -1,
+                "Authorization failed".to_string(),
+            ));
         }
     }
 
@@ -223,23 +221,11 @@ fn process(
     Ok(match failed {
         Some(f) => {
             tx.rollback()?;
-            Response {
-                results: None,
-                req_idx: Some(f.0 as isize),
-                message: Some(f.1),
-                status_code: 500,
-                success: false,
-            }
+            Response::new_err(500, f.0 as isize, f.1)
         }
         None => {
             tx.commit()?;
-            Response {
-                results: Some(results),
-                req_idx: None,
-                message: None,
-                status_code: 200,
-                success: true,
-            }
+            Response::new_ok(results)
         }
     })
 }
@@ -269,12 +255,6 @@ pub async fn handler(
 
             result
         }
-        None => Response {
-            results: None,
-            req_idx: Some(-1),
-            message: Some(format!("Unknown database '{}'", db_name.as_str())),
-            status_code: 404,
-            success: false,
-        },
+        None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name)),
     }
 }

@@ -78,13 +78,7 @@ fn exec_macro_inner(
 ) -> Response {
     let macr = macros_def.get(id);
     if macr.is_none() {
-        return Response {
-            results: None,
-            req_idx: Some(-1),
-            message: Some(format!("Macro '{}' not found", id)),
-            status_code: 400,
-            success: false,
-        };
+        return Response::new_err(400, -1, format!("Macro '{}' not found", id));
     }
     let macr = macr.unwrap();
 
@@ -93,15 +87,7 @@ fn exec_macro_inner(
         let changed_rows = tx.execute(statement, []);
         match changed_rows {
             Ok(cr) => changed_rows_s.push(cr),
-            Err(e) => {
-                return Response {
-                    results: None,
-                    req_idx: Some(i as isize),
-                    message: Some(e.to_string()),
-                    status_code: 500,
-                    success: false,
-                }
-            }
+            Err(e) => return Response::new_err(500, i as isize, e.to_string()),
         }
     }
 
@@ -116,13 +102,7 @@ fn exec_macro_inner(
         });
     }
 
-    Response {
-        results: Some(ret),
-        req_idx: None,
-        message: None,
-        status_code: 200,
-        success: true,
-    }
+    Response::new_ok(ret)
 }
 
 pub fn exec_macro(
@@ -133,13 +113,11 @@ pub fn exec_macro(
     let tx = match conn.transaction() {
         Ok(tx) => tx,
         Err(_) => {
-            return Response {
-                results: None,
-                req_idx: Some(-1),
-                message: Some(format!("Transaction open failed for macro '{}'", id)),
-                status_code: 500,
-                success: false,
-            }
+            return Response::new_err(
+                500,
+                -1,
+                format!("Transaction open failed for macro '{}'", id),
+            )
         }
     };
     let ret = exec_macro_inner(id, macros_def, &tx);
@@ -147,13 +125,7 @@ pub fn exec_macro(
         match tx.commit() {
             Ok(_) => (),
             Err(_) => {
-                return Response {
-                    results: None,
-                    req_idx: Some(-1),
-                    message: Some(format!("Commit failed for macro '{}'", id)),
-                    status_code: 500,
-                    success: false,
-                }
+                return Response::new_err(500, -1, format!("Commit failed for macro '{}'", id))
             }
         }
     } else {
@@ -222,12 +194,6 @@ pub async fn handler(
 
             exec_macro(&macro_name, &db_conf.macros, conn)
         }
-        None => Response {
-            results: None,
-            req_idx: Some(-1),
-            message: Some(format!("Unknown database '{}'", db_name.as_str())),
-            status_code: 404,
-            success: false,
-        },
+        None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name.as_str())),
     }
 }

@@ -10,6 +10,7 @@ license = "MIT"
 actix-files = "~0"
 actix-web = "~4"
 actix-web-httpauth = "~0"
+chrono = "~0"
 clap = { version = "~4", features = [ "derive" ] }
 eyre = "~0"
 hex = "~0"

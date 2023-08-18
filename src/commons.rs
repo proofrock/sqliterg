@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use chrono::{Datelike, Local, Timelike};
 use eyre::Result;
 use ring::digest::{Context, SHA256};
 use std::{borrow::Borrow, collections::HashMap, path::Path};
@@ -58,6 +59,18 @@ pub fn sha256(input: String) -> String {
 
 pub fn equal_case_insensitive(s1: &String, s2: &String) -> bool {
     s1.to_lowercase() == s2.to_lowercase()
+}
+
+pub fn now() -> String {
+    let current_datetime = Local::now();
+
+    let year = current_datetime.year();
+    let month = current_datetime.month();
+    let day = current_datetime.day();
+    let hour = current_datetime.hour();
+    let minute = current_datetime.minute();
+
+    format!("{:04}{:02}{:02}-{:02}{:02}", year, month, day, hour, minute)
 }
 
 pub fn check_stored_stmt<'a>(

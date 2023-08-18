@@ -108,3 +108,25 @@ impl Responder for Response {
             .body(body)
     }
 }
+
+impl Response {
+    pub fn new_ok(results: Vec<ResponseItem>) -> Response {
+        Response {
+            results: Some(results),
+            req_idx: None,
+            message: None,
+            status_code: 200,
+            success: true,
+        }
+    }
+
+    pub fn new_err(status_code: u16, req_idx: isize, msg: String) -> Response {
+        Response {
+            results: None,
+            req_idx: Some(req_idx),
+            message: Some(msg),
+            status_code: status_code,
+            success: false,
+        }
+    }
+}

@@ -31,11 +31,12 @@ use rusqlite::Connection;
 use std::panic;
 
 pub mod auth;
+mod backup;
 pub mod commandline;
 pub mod commons;
 pub mod db_config;
-pub mod logic;
-pub mod macros;
+mod logic;
+mod macros;
 pub mod main_config;
 pub mod req_res;
 
@@ -71,6 +72,7 @@ async fn main() -> std::io::Result<()> {
         let dir = dir.clone();
         let mut a = App::new()
             .app_data(db_map.clone())
+            .service(backup::handler) // TODO add backup only if it's configured
             .service(logic::handler)
             .service(macros::handler); // TODO add macros only if there are macros
         if dir.is_some() {

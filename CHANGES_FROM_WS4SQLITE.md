@@ -6,3 +6,4 @@
 - Stored Statements are now prefixed with `^`, not `#`, because it can be used in macros that are defined in the YAML file, where `#` would be a comment
 - ScheduledTasks are replaced with the new macro and backup subsystems
     - Avoid use of scheduler logic, as it is very language-dependent and may be different from cron, with which the user is probably familiar
+- The '%s' in the backup template is optional
