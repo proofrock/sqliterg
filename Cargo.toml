@@ -4,7 +4,7 @@ description = "A SQLite remote gateway - query SQLite via HTTP"
 name = "sqliterg"
 version = "0.0.0"
 edition = "2021"
-license = "MIT"
+license = "Apache-2.0"
 
 [dependencies]
 actix-cors = "~0"

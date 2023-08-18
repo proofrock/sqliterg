@@ -1,4 +1,4 @@
-- License change from BSD to MIT
+- License change from BSD to Apache 2
 - Removed encryption feature (it was standard-based but very custom)
 - URL to contact for POST is now `http://&lt;host&gt;:&lt;port&gt;/&lt;db_name&gt/exec` (note the `/exec/`)
 - Read-only mode is performed via the `query_only` PRAGMA
