@@ -28,7 +28,7 @@ use rusqlite::Connection;
 
 use crate::backup::do_backup;
 use crate::commandline::AppConfig;
-use crate::commons::{abort, file_exists};
+use crate::commons::{abort, file_exists, resolve_tilde};
 use crate::db_config::{parse_dbconf, DbConfig};
 use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
 
@@ -59,6 +59,8 @@ fn to_yaml_path(path: &String) -> String {
 pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     let mut db_map = HashMap::new();
     for db in &cl.db {
+        let db = resolve_tilde(db);
+
         let yaml = to_yaml_path(&db);
         let dbconf = if !file_exists(&yaml) {
             println!("File {} not found: assuming defaults", &yaml);

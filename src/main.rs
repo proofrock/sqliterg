@@ -39,7 +39,10 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{commons::abort, main_config::compose_db_map};
+use crate::{
+    commons::{abort, resolve_tilde_opt},
+    main_config::compose_db_map,
+};
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
@@ -66,7 +69,7 @@ async fn main() -> std::io::Result<()> {
         Err(e) => abort(format!("{}", e.to_string())),
     };
 
-    let dir = cli.serve_dir.clone();
+    let dir = resolve_tilde_opt(&cli.serve_dir);
 
     let app_lambda = move || {
         let dir = dir.clone();

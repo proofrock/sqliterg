@@ -131,6 +131,17 @@ pub fn check_stored_stmt<'a>(
     }
 }
 
+pub fn resolve_tilde(p: &String) -> String {
+    shellexpand::tilde(p).to_string()
+}
+
+pub fn resolve_tilde_opt(p: &Option<String>) -> Option<String> {
+    match p {
+        Some(p) => Some(resolve_tilde(p)),
+        None => None,
+    }
+}
+
 // Utils to convert serde structs to slices accepted by rusqlite as named params
 pub struct NamedParamsContainer(Vec<(String, Box<dyn rusqlite::types::ToSql>)>);
 

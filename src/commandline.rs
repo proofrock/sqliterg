@@ -38,8 +38,8 @@ pub struct AppConfig {
     pub bind_host: String,
     #[arg(short, long, value_name = "DB_PATH", help = "Repeatable; paths of file-based databases", num_args = 0..)]
     pub db: Vec<String>,
-    #[arg(short, long, value_name = "MEM_DB", help = "Repeatable; config for memory-based databases (format: ID[:configFilePath])", num_args = 0..)]
-    pub mem_db: Vec<String>,
+    // #[arg(short, long, value_name = "MEM_DB", help = "Repeatable; config for memory-based databases (format: ID[:configFilePath])", num_args = 0..)]
+    // pub mem_db: Vec<String>,
     #[arg(
         short,
         long,

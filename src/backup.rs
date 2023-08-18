@@ -31,7 +31,7 @@ use rusqlite::Connection;
 
 use crate::{
     auth::process_creds,
-    commons::{delete_old_files, file_exists, now},
+    commons::{delete_old_files, file_exists, now, resolve_tilde},
     db_config::Backup,
     main_config::Db,
     req_res::{Response, Token},
@@ -54,15 +54,13 @@ fn gen_bkp_file(directory: &str, filepath: &str) -> String {
 }
 
 pub fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response {
-    if !file_exists(&bkp.backup_dir) {
-        return Response::new_err(
-            404,
-            -1,
-            format!("Backup dir '{}' not found", bkp.backup_dir),
-        );
+    let bkp_dir = resolve_tilde(&bkp.backup_dir);
+
+    if !file_exists(&bkp_dir) {
+        return Response::new_err(404, -1, format!("Backup dir '{}' not found", bkp_dir));
     }
 
-    let file = gen_bkp_file(&bkp.backup_dir, db_path);
+    let file = gen_bkp_file(&bkp_dir, db_path);
     if file_exists(&file) {
         Response::new_err(409, -1, format!("File '{}' already exists", file))
     } else {
