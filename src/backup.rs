@@ -27,50 +27,72 @@ use actix_web::{
     web::{self, Path},
     Responder,
 };
+use rusqlite::Connection;
 
 use crate::{
+    auth::process_creds,
     commons::{delete_old_files, file_exists, now},
+    db_config::Backup,
     main_config::Db,
-    req_res::Response,
+    req_res::{Response, Token},
 };
+
+pub fn do_backup(bkp: &Backup, conn: &Connection) -> Response {
+    let file = bkp.backup_template.replace("%s", &now());
+    if file_exists(&file) {
+        Response::new_err(409, -1, format!("File '{}' already exists", file))
+    } else {
+        match conn.execute("BACKUP TO ?1", [&file]) {
+            Ok(_) => match delete_old_files(&file, bkp.num_files) {
+                Ok(_) => Response::new_ok(vec![]),
+                Err(e) => Response::new_err(
+                    500,
+                    -1,
+                    format!(
+                        "Database backed up but error in deleting old files: {}",
+                        e.to_string()
+                    ),
+                ),
+            },
+            Err(e) => Response::new_err(500, -1, e.to_string()),
+        }
+    }
+}
 
 #[post("/db/{db_name}")]
 pub async fn handler(
     db_map: web::Data<HashMap<String, Db>>,
     db_name: Path<String>,
+    token: web::Query<Token>,
 ) -> impl Responder {
     let db_conf = db_map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => match &db_conf.conf.backup {
-            Some(bkp) => {
-                let file = bkp.backup_template.replace("%s", &now());
-                if file_exists(&file) {
-                    Response::new_err(409, -1, format!("File '{}' already exists", file))
-                } else {
+            Some(bkp) => match &db_conf.conf.backup_endpoint {
+                Some(be) => {
+                    if !process_creds(&token.token, &be.auth_token, &be.hashed_auth_token) {
+                        return Response::new_err(401, -1, "Token mismatch".to_string());
+                    }
+
                     let db_lock = &db_conf.mutex;
                     let mut db_lock_guard = db_lock.lock().unwrap();
                     let conn = db_lock_guard.deref_mut();
 
-                    match conn.execute("BACKUP TO ?1", [&file]) {
-                        Ok(_) => match delete_old_files(&file, bkp.num_files) {
-                            Ok(_) => Response::new_ok(vec![]),
-                            Err(e) => Response::new_err(
-                                500,
-                                -1,
-                                format!(
-                                    "Database backed up but error in deleting old files: {}",
-                                    e.to_string()
-                                ),
-                            ),
-                        },
-                        Err(e) => Response::new_err(500, -1, e.to_string()),
-                    }
+                    do_backup(bkp, &conn)
                 }
-            }
+                None => Response::new_err(
+                    404,
+                    -1,
+                    format!(
+                        "Database '{}' doesn't have a backupEndpoint",
+                        db_name.as_str()
+                    ),
+                ),
+            },
             None => Response::new_err(
                 404,
                 -1,
-                format!("Database '{}' don't have a backup plan", db_name.as_str()),
+                format!("Database '{}' doesn't have a backup node", db_name.as_str()),
             ),
         },
         None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name.as_str())),

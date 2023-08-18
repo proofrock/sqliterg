@@ -130,3 +130,8 @@ impl Response {
         }
     }
 }
+
+#[derive(Deserialize)]
+pub struct Token {
+    pub token: Option<String>,
+}

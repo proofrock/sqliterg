@@ -57,6 +57,14 @@ pub struct Macro {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct MacrosEndpoint {
+    #[serde(rename = "authToken")]
+    pub auth_token: Option<String>,
+    #[serde(rename = "hashedAuthToken")]
+    pub hashed_auth_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Backup {
     #[serde(rename = "backupTemplate")]
     pub backup_template: String,
@@ -67,7 +75,16 @@ pub struct Backup {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct BackupEndpoint {
+    #[serde(rename = "authToken")]
+    pub auth_token: Option<String>,
+    #[serde(rename = "hashedAuthToken")]
+    pub hashed_auth_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct DbConfig {
+    pub version: u8,
     pub auth: Option<Auth>,
     #[serde(rename = "disableWALMode")]
     #[serde(default = "default_as_false")]
@@ -90,7 +107,11 @@ pub struct DbConfig {
     pub init_macros: Option<Vec<String>>,
     #[serde(rename = "startupMacros")]
     pub startup_macros: Option<Vec<String>>,
+    #[serde(rename = "macrosEndpoint")]
+    pub macros_endpoint: Option<MacrosEndpoint>,
     pub backup: Option<Backup>,
+    #[serde(rename = "backupEndpoint")]
+    pub backup_endpoint: Option<BackupEndpoint>,
 }
 
 #[derive(Debug, Deserialize)]

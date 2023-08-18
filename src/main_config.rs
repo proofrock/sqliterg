@@ -25,6 +25,7 @@ use std::{collections::HashMap, path::Path, sync::Mutex};
 use eyre::Result;
 use rusqlite::Connection;
 
+use crate::backup::do_backup;
 use crate::commandline::AppConfig;
 use crate::commons::file_exists;
 use crate::db_config::{parse_dbconf, DbConfig};
@@ -74,6 +75,18 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             &macros_def,
             &mut conn,
         )?;
+
+        match &dbconf.backup {
+            Some(bkp) => {
+                if bkp.at_startup {
+                    let res = do_backup(&bkp, &conn);
+                    if !res.success {
+                        eprintln!("Cannot perform backup: {}", res.message.unwrap());
+                    }
+                }
+            }
+            None => (),
+        }
 
         if dbconf.read_only {
             conn.execute("PRAGMA query_only = true", [])?;

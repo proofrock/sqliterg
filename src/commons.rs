@@ -52,7 +52,7 @@ pub fn file_exists(path: &String) -> bool {
     Path::new(path).exists()
 }
 
-pub fn sha256(input: String) -> String {
+pub fn sha256(input: &String) -> String {
     let digest = {
         let mut context = Context::new(&SHA256);
         context.update(input.as_bytes()); // UTF-8

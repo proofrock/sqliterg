@@ -30,36 +30,31 @@ use crate::{
     req_res::ReqCredentials,
 };
 
+pub fn process_creds(
+    given_password: &Option<String>,
+    password: &Option<String>,
+    hashed_password: &Option<String>,
+) -> bool {
+    match given_password {
+        Some(gp) => match password {
+            Some(p) => p == gp,
+            None => match hashed_password {
+                Some(hp) => equal_case_insensitive(&hp, &sha256(&gp)),
+                None => false,
+            },
+        },
+        None => false,
+    }
+}
+
 fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>) -> bool {
-    let mut reg_pass: Option<String> = None;
-    let mut reg_pass_format = 0; // 0=plaintext, 1=hashed
     for c in creds {
         // TODO hash table lookup
         if equal_case_insensitive(&user, &c.user) {
-            match &c.password {
-                Some(p) => reg_pass = Some(p.clone()),
-                None => match &c.hashed_password {
-                    Some(hp) => {
-                        reg_pass = Some(hp.clone());
-                        reg_pass_format = 1;
-                    }
-                    None => (),
-                },
-            }
-            break;
+            return process_creds(&Some(password), &c.password, &c.hashed_password);
         }
     }
-    match reg_pass {
-        Some(p) => {
-            if reg_pass_format == 0 {
-                p == password
-            } else {
-                let shap = sha256(password);
-                equal_case_insensitive(&p, &shap)
-            }
-        }
-        None => false,
-    }
+    false
 }
 
 fn auth_by_query(user: String, password: String, query: &String, conn: &mut Connection) -> bool {

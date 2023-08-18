@@ -1,4 +1,3 @@
-- Auth for macros&backups
 - CORS
 - Transient connections (at db level)
 - Add descriptive error messages on parsing

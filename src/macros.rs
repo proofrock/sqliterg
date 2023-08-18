@@ -31,10 +31,11 @@ use eyre::Result;
 use rusqlite::{Connection, Transaction};
 
 use crate::{
+    auth::process_creds,
     commons::check_stored_stmt,
     db_config::DbConfig,
     main_config::Db,
-    req_res::{Response, ResponseItem},
+    req_res::{Response, ResponseItem, Token},
 };
 
 pub fn parse_stored_statements(dbconf: &DbConfig) -> HashMap<String, String> {
@@ -184,10 +185,29 @@ pub async fn handler(
     db_map: web::Data<HashMap<String, Db>>,
     db_name: Path<String>,
     macro_name: Path<String>,
+    token: web::Query<Token>,
 ) -> impl Responder {
     let db_conf = db_map.get(db_name.as_str());
     match db_conf {
         Some(db_conf) => {
+            match &db_conf.conf.macros_endpoint {
+                Some(me) => {
+                    if !process_creds(&token.token, &me.auth_token, &me.hashed_auth_token) {
+                        return Response::new_err(401, -1, "Token mismatch".to_string());
+                    }
+                }
+                None => {
+                    return Response::new_err(
+                        404,
+                        -1,
+                        format!(
+                            "Database '{}' doesn't have a macrosEndpoint",
+                            db_name.as_str()
+                        ),
+                    )
+                }
+            }
+
             let db_lock = &db_conf.mutex;
             let mut db_lock_guard = db_lock.lock().unwrap();
             let conn = db_lock_guard.deref_mut();
