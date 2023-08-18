@@ -1,6 +1,6 @@
 #!/bin/bash
 
-URL="http://localhost:12321/db/test"
+URL="http://localhost:12321/test/exec"
 REQUESTS=20000
 
 rm -rf test/*.db*

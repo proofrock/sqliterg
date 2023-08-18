@@ -25,7 +25,7 @@ use std::io::Read;
 
 use crate::commons::{default_as_false, default_as_true};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum AuthMode {
     #[serde(rename = "HTTP_BASIC")]
     HttpBasic,
@@ -33,7 +33,7 @@ pub enum AuthMode {
     Inline,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Auth {
     pub mode: AuthMode,
     #[serde(rename = "byQuery")]
@@ -42,7 +42,7 @@ pub struct Auth {
     pub by_credentials: Option<Vec<Credentials>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Credentials {
     pub user: String,
     pub password: Option<String>,
@@ -50,13 +50,13 @@ pub struct Credentials {
     pub hashed_password: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Macro {
     pub id: String,
     pub statements: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MacrosEndpoint {
     #[serde(rename = "authToken")]
     pub auth_token: Option<String>,
@@ -64,7 +64,7 @@ pub struct MacrosEndpoint {
     pub hashed_auth_token: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Backup {
     #[serde(rename = "backupDir")]
     pub backup_dir: String,
@@ -74,7 +74,7 @@ pub struct Backup {
     pub at_startup: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct BackupEndpoint {
     #[serde(rename = "authToken")]
     pub auth_token: Option<String>,
@@ -82,7 +82,7 @@ pub struct BackupEndpoint {
     pub hashed_auth_token: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct DbConfig {
     pub auth: Option<Auth>,
     #[serde(rename = "disableWALMode")]
@@ -133,7 +133,7 @@ impl DbConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StoredStatement {
     pub id: String,
     pub sql: String,

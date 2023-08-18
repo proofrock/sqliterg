@@ -22,12 +22,7 @@
 
 use std::{collections::HashMap, ops::DerefMut};
 
-use actix_web::{
-    http::header::Header,
-    post,
-    web::{self, Path},
-    HttpRequest, Responder,
-};
+use actix_web::{http::header::Header, web, HttpRequest, Responder};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
 use rusqlite::{types::Value, Connection, ToSql, Transaction};
@@ -36,9 +31,10 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use crate::{
     auth::process_auth,
     commons::{check_stored_stmt, prepend_column, NamedParamsContainer},
-    db_config::DbConfig,
+    db_config::{AuthMode, DbConfig},
     main_config::Db,
     req_res::{self, ReqTransactionItem, Response, ResponseItem},
+    MUTEXES,
 };
 
 fn val_db2val_json(val: Value) -> JsonValue {
@@ -230,31 +226,30 @@ fn process(
     })
 }
 
-#[post("/db/{db_name}")]
 pub async fn handler(
     req: HttpRequest,
-    db_map: web::Data<HashMap<String, Db>>,
     body: web::Json<req_res::Request>,
-    db_name: Path<String>,
+    db_conf: web::Data<Db>,
+    db_name: web::Data<String>,
 ) -> impl Responder {
-    let auth = Authorization::<Basic>::parse(&req);
-    let auth = match auth {
-        Ok(a) => Some(a),
-        Err(_) => None,
+    let auth = if (&db_conf).conf.auth.is_some()
+        && matches!(
+            db_conf.conf.auth.as_ref().unwrap().mode,
+            AuthMode::HttpBasic
+        ) {
+        match Authorization::<Basic>::parse(&req) {
+            Ok(a) => Some(a),
+            Err(_) => None,
+        }
+    } else {
+        None
     };
 
-    let db_conf = db_map.get(db_name.as_str());
-    match db_conf {
-        Some(db_conf) => {
-            let db_lock = &db_conf.mutex;
-            let mut db_lock_guard = db_lock.lock().unwrap();
-            let conn = db_lock_guard.deref_mut();
+    let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
+    let mut db_lock_guard = db_lock.lock().unwrap();
+    let conn = db_lock_guard.deref_mut();
 
-            let result =
-                process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap();
+    let result = process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap();
 
-            result
-        }
-        None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name)),
-    }
+    result
 }

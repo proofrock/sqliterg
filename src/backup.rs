@@ -20,13 +20,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-use std::{collections::HashMap, ops::DerefMut, path::Path as SysPath};
+use std::{ops::DerefMut, path::Path as SysPath};
 
-use actix_web::{
-    post,
-    web::{self, Path},
-    Responder,
-};
+use actix_web::{web, Responder};
 use rusqlite::Connection;
 
 use crate::{
@@ -35,6 +31,7 @@ use crate::{
     db_config::Backup,
     main_config::Db,
     req_res::{Response, Token},
+    MUTEXES,
 };
 
 fn gen_bkp_file(directory: &str, filepath: &str) -> String {
@@ -81,42 +78,37 @@ pub fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response 
     }
 }
 
-#[post("/backup/{db_name}")]
 pub async fn handler(
-    db_map: web::Data<HashMap<String, Db>>,
-    db_name: Path<String>,
+    db_conf: web::Data<Db>,
+    db_name: web::Data<String>,
     token: web::Query<Token>,
 ) -> impl Responder {
-    let db_conf = db_map.get(db_name.as_str());
-    match db_conf {
-        Some(db_conf) => match &db_conf.conf.backup {
-            Some(bkp) => match &db_conf.conf.backup_endpoint {
-                Some(be) => {
-                    if !process_creds(&token.token, &be.auth_token, &be.hashed_auth_token) {
-                        return Response::new_err(401, -1, "Token mismatch".to_string());
-                    }
-
-                    let db_lock = &db_conf.mutex;
-                    let mut db_lock_guard = db_lock.lock().unwrap();
-                    let conn = db_lock_guard.deref_mut();
-
-                    do_backup(bkp, &db_conf.path, &conn)
+    match &db_conf.conf.backup {
+        Some(bkp) => match &db_conf.conf.backup_endpoint {
+            Some(be) => {
+                if !process_creds(&token.token, &be.auth_token, &be.hashed_auth_token) {
+                    return Response::new_err(401, -1, "Token mismatch".to_string());
                 }
-                None => Response::new_err(
-                    404,
-                    -1,
-                    format!(
-                        "Database '{}' doesn't have a backupEndpoint",
-                        db_name.as_str()
-                    ),
-                ),
-            },
+
+                let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
+                let mut db_lock_guard = db_lock.lock().unwrap();
+                let conn = db_lock_guard.deref_mut();
+
+                do_backup(bkp, &db_conf.path, &conn)
+            }
             None => Response::new_err(
                 404,
                 -1,
-                format!("Database '{}' doesn't have a backup node", db_name.as_str()),
+                format!(
+                    "Database '{}' doesn't have a backupEndpoint",
+                    db_name.as_str()
+                ),
             ),
         },
-        None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name.as_str())),
+        None => Response::new_err(
+            404,
+            -1,
+            format!("Database '{}' doesn't have a backup node", db_name.as_str()),
+        ),
     }
 }

@@ -21,7 +21,8 @@
 // SOFTWARE.
 
 use std::fs::remove_file;
-use std::{collections::HashMap, path::Path, sync::Mutex};
+use std::sync::Mutex;
+use std::{collections::HashMap, path::Path};
 
 use eyre::Result;
 use rusqlite::Connection;
@@ -31,14 +32,14 @@ use crate::commandline::AppConfig;
 use crate::commons::{abort, file_exists, resolve_tilde};
 use crate::db_config::{parse_dbconf, DbConfig};
 use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
+use crate::MUTEXES;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Db {
     pub path: String,
     pub conf: DbConfig,
 
     // calculated
-    pub mutex: Mutex<Connection>,
     pub stored_statements: HashMap<String, String>,
     pub macros: HashMap<String, Vec<String>>,
 }
@@ -58,6 +59,7 @@ fn to_yaml_path(path: &String) -> String {
 
 pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     let mut db_map = HashMap::new();
+    let mut mutexes = HashMap::new();
     for db in &cl.db {
         let db = resolve_tilde(db);
 
@@ -116,12 +118,16 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         let db_cfg = Db {
             path: db.clone(),
             conf: dbconf,
-            mutex: Mutex::new(conn),
             stored_statements,
             macros: macros_def,
         };
 
-        db_map.insert(to_base_name(&db), db_cfg);
+        let db_name = to_base_name(&db);
+        db_map.insert(db_name.clone(), db_cfg);
+        mutexes.insert(db_name.clone(), Mutex::new(conn));
     }
-    Ok(db_map)
+    match MUTEXES.set(mutexes) {
+        Ok(_) => Ok(db_map),
+        Err(_) => Result::Err(eyre!("Error setting mutexes".to_string())),
+    }
 }

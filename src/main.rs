@@ -25,8 +25,17 @@ extern crate serde_derive;
 #[macro_use]
 extern crate eyre;
 
+use std::{
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
+
 use actix_files::Files;
-use actix_web::{web::Data, App, HttpServer};
+use actix_web::{
+    guard,
+    web::{post, scope, Data},
+    App, HttpServer,
+};
 use rusqlite::Connection;
 
 pub mod auth;
@@ -46,6 +55,8 @@ use crate::{
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
+pub static MUTEXES: OnceLock<HashMap<String, Mutex<Connection>>> = OnceLock::new();
+
 fn get_sqlite_version() -> String {
     let conn: Connection = Connection::open_in_memory().unwrap();
     conn.query_row("SELECT sqlite_version()", [], |row| row.get(0))
@@ -64,8 +75,9 @@ async fn main() -> std::io::Result<()> {
 
     let cli = commandline::parse_cli();
 
+    // side effect of compose_db_map: populate MUTEXES
     let db_map = match compose_db_map(&cli) {
-        Ok(db_map) => Data::new(db_map),
+        Ok(db_map) => db_map,
         Err(e) => abort(format!("{}", e.to_string())),
     };
 
@@ -73,11 +85,22 @@ async fn main() -> std::io::Result<()> {
 
     let app_lambda = move || {
         let dir = dir.clone();
-        let mut a = App::new()
-            .app_data(db_map.clone())
-            .service(backup::handler) // TODO add backup only if it's configured
-            .service(logic::handler)
-            .service(macros::handler); // TODO add macros only if there are macros
+        let mut a = App::new();
+        for (db_name, db_conf) in db_map.iter() {
+            let mut scope = scope(format!("/{}", db_name.clone()).as_str())
+                .app_data(Data::new(db_name.clone()))
+                .app_data(Data::new(db_conf.clone()))
+                .guard(guard::Header("content-type", "application/json"))
+                .route("/exec", post().to(logic::handler));
+            if db_conf.conf.backup_endpoint.is_some() {
+                scope = scope.route("/backup", post().to(backup::handler))
+            }
+            if db_conf.conf.macros_endpoint.is_some() {
+                scope = scope.route("/macro/{macro_name}", post().to(macros::handler))
+            }
+            a = a.service(scope);
+        }
+
         if dir.is_some() {
             a = a.service(Files::new("/", dir.unwrap()));
         };

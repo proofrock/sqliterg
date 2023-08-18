@@ -1,6 +1,6 @@
 - License change from BSD to MIT
 - Removed encryption feature (it was standard-based but very custom)
-- URL to contact for POST is now `http://&lt;host&gt;:&lt;port&gt;/db/&lt;db_name&gt` (note the `/db/`)
+- URL to contact for POST is now `http://&lt;host&gt;:&lt;port&gt;/&lt;db_name&gt/exec` (note the `/exec/`)
 - Read-only mode is performed via the `query_only` PRAGMA
 - Even if the database is read only, it's possible to perform init macros
 - Stored Statements are now prefixed with `^`, not `#`, because it can be used in macros that are defined in the YAML file, where `#` would be a comment

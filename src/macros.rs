@@ -23,7 +23,6 @@
 use std::{collections::HashMap, ops::DerefMut};
 
 use actix_web::{
-    post,
     web::{self, Path},
     Responder,
 };
@@ -36,6 +35,7 @@ use crate::{
     db_config::DbConfig,
     main_config::Db,
     req_res::{Response, ResponseItem, Token},
+    MUTEXES,
 };
 
 pub fn parse_stored_statements(dbconf: &DbConfig) -> HashMap<String, String> {
@@ -188,7 +188,6 @@ pub fn exec_init_startup_macros(
     }
 }
 
-#[post("/macro/{db_name}/{macro_name}")]
 pub async fn handler(
     db_map: web::Data<HashMap<String, Db>>,
     db_name: Path<String>,
@@ -216,7 +215,7 @@ pub async fn handler(
                 }
             }
 
-            let db_lock = &db_conf.mutex;
+            let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
             let mut db_lock_guard = db_lock.lock().unwrap();
             let conn = db_lock_guard.deref_mut();
 
