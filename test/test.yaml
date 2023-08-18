@@ -1,0 +1,43 @@
+auth:
+  mode: INLINE
+  byQuery: SELECT 1 FROM AUTH WHERE USER = :user AND PASS = :password
+  # byCredentials:
+  #   - user: myUser1
+  #     password: ciao
+  #   - user: myUser2
+  #     hashedPassword: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
+disableWALMode: false
+readOnly: false
+corsOrigin: "*"
+storedStatements:
+  - id: Q1
+    sql: SELECT * FROM TBL 
+  - id: Q2
+    sql: INSERT INTO TBL VALUES (:id, :val)
+  - id: Q3
+    sql: DELETE FROM TBL
+useOnlyStoredStatements: false
+macros:
+  - id: M1
+    statements:
+      - CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)
+  - id: M2
+    statements:
+      - ^Q3
+      - CREATE TABLE IF NOT EXISTS AUTH (USER TEXT, PASS TEXT)
+      - DELETE FROM AUTH
+      - INSERT INTO AUTH VALUES ('myUser', 'ciao')
+initMacros:
+  - M1
+startupMacros:
+  - M2
+macrosEndpoint:
+  authToken: ciao
+  hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
+backup:
+  backupDir: test/backups/
+  numFiles: 3
+  atStartup: true
+backupEndpoint:
+  authToken: ciao
+  hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2

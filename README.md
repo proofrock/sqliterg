@@ -10,4 +10,6 @@ This is a rewrite of [ws4sqlite](https://github.com/proofrock/ws4sqlite) in Rust
 
 But mainly, to be able to compile against an existing SQLite, not (only) embedding one. [rusqlite](https://docs.rs/rusqlite/latest/rusqlite/) has this feature, and I'd like to explore it.
 
+It doesn't hurt that preliminary benchmarks seem to indicate that it's 30% faster and uses 1/5th of the memory.
+
 No ETA. Don't hold your breath.
