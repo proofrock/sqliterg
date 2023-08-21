@@ -77,12 +77,12 @@ async fn main() -> std::io::Result<()> {
     let dir = resolve_tilde_opt(&cli.serve_dir);
 
     let app_lambda = move || {
-        let dir = dir.clone();
+        let dir = dir.to_owned();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
-            let scop: Scope = scope(format!("/{}", db_name.clone()).as_str())
-                .app_data(Data::new(db_name.clone()))
-                .app_data(Data::new(db_conf.clone()))
+            let scop: Scope = scope(format!("/{}", db_name.to_owned()).as_str())
+                .app_data(Data::new(db_name.to_owned()))
+                .app_data(Data::new(db_conf.to_owned()))
                 .guard(guard::Header("content-type", "application/json"))
                 .route("/exec", post().to(logic::handler))
                 .route("/backup", post().to(backup::handler))

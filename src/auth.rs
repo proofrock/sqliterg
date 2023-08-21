@@ -73,7 +73,7 @@ pub fn process_auth(
             None => return false,
         },
         AuthMode::Inline => match auth_inline {
-            Some(auth_inline) => (auth_inline.user.clone(), auth_inline.password.clone()),
+            Some(auth_inline) => (auth_inline.user.to_owned(), auth_inline.password.to_owned()),
             None => return false,
         },
     };

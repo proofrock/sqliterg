@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{collections::HashMap, ops::DerefMut};
+use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use actix_web::{
+    rt::{
+        spawn,
+        time::{interval_at, Instant},
+    },
     web::{self, Path},
     Responder,
 };
@@ -35,7 +39,7 @@ pub fn parse_stored_statements(dbconf: &DbConfig) -> HashMap<String, String> {
     match &dbconf.stored_statements {
         Some(ss) => {
             for el in ss {
-                stored_statements.insert(el.id.clone(), el.sql.clone());
+                stored_statements.insert(el.id.to_owned(), el.sql.to_owned());
             }
         }
         None => (),
@@ -52,16 +56,16 @@ pub fn parse_macros(
         Some(ms) => {
             for el in ms {
                 let mut statements: Vec<String> = vec![];
-                for statement in el.statements.clone() {
+                for statement in el.statements.to_owned() {
                     let statement = check_stored_stmt(&statement, stored_statements, false)?;
-                    statements.push(statement.clone());
+                    statements.push(statement.to_owned());
                 }
                 macros.insert(
-                    el.id.clone(),
+                    el.id.to_owned(),
                     Macro {
-                        id: el.id.clone(),
+                        id: el.id.to_owned(),
                         statements: statements,
-                        execution: el.execution.clone(),
+                        execution: el.execution.to_owned(),
                     },
                 );
             }
@@ -129,8 +133,7 @@ pub fn bootstrap_db_macros(
                     Some(mex) => {
                         if mex.on_startup || (is_new_db && mex.on_create) {
                             for (i, statement) in macr.statements.iter().enumerate() {
-                                let changed_rows = tx.execute(statement, []);
-                                match changed_rows {
+                                match tx.execute(statement, []) {
                                     Ok(_) => (),
                                     Err(e) => {
                                         let _ = tx.rollback();
@@ -227,5 +230,66 @@ pub async fn handler(
             }
         },
         None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name.as_str())),
+    }
+}
+
+pub fn periodic_macro(macr: Macro, db_name: String) -> () {
+    match macr.execution {
+        Some(mex) => {
+            if mex.period > 0 {
+                spawn(async move {
+                    let p = Duration::from_secs(mex.period as u64 * 60);
+                    let first_start = Instant::now().checked_add(p).unwrap();
+                    let mut interval = interval_at(first_start, p);
+
+                    interval.tick().await; // skip first execution
+
+                    loop {
+                        interval.tick().await;
+
+                        let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
+                        let mut db_lock_guard = db_lock.lock().unwrap();
+                        let conn = db_lock_guard.deref_mut();
+
+                        let tx = match conn.transaction() {
+                            Ok(tx) => tx,
+                            Err(_) => {
+                                eprintln!(
+                                    "Transaction open failed for db '{}', macro '{}'",
+                                    db_name, macr.id,
+                                );
+                                return;
+                            }
+                        };
+
+                        for (i, statement) in macr.statements.iter().enumerate() {
+                            match tx.execute(statement, []) {
+                                Ok(_) => (),
+                                Err(e) => {
+                                    let _ = tx.rollback();
+                                    eprintln!(
+                                        "In macro '{}' of db '{}', index {}: {}",
+                                        macr.id, db_name, i, e
+                                    );
+                                    return;
+                                }
+                            }
+                        }
+
+                        match tx.commit() {
+                            Ok(_) => println!("Macro '{}' executed for db '{}'", macr.id, db_name),
+                            Err(e) => {
+                                eprintln!(
+                                    "Commit failed for startup macros in db '{}': {}",
+                                    db_name,
+                                    e.to_string()
+                                );
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        None => (),
     }
 }

@@ -24,7 +24,7 @@ macros:
     execution:
       onCreate: true
       onStartup: false
-      period: 5 # in minutes, <= 0: never
+#      period: 1 # in minutes, <= 0: never
       webService:
 #        authToken: ciao
         hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
@@ -37,7 +37,7 @@ macros:
     execution:
 #       onCreate: true
       onStartup: true
-#      period: 5 # in minutes, <= 0: never
+#      period: 1 # in minutes, <= 0: never
       webService:
         authToken: ciao
 #        hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
@@ -48,7 +48,7 @@ backup:
   execution:
 #    onCreate: true # illegal for backup
     onStartup: false
-    period: 5 # in minutes
+#    period: 1 # in minutes
     webService:
       authToken: ciao
 #      hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2

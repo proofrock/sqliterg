@@ -19,11 +19,11 @@ use std::{collections::HashMap, path::Path};
 use eyre::Result;
 use rusqlite::Connection;
 
-use crate::backup::bootstrap_backup;
+use crate::backup::{bootstrap_backup, periodic_backup};
 use crate::commandline::AppConfig;
 use crate::commons::{abort, file_exists, resolve_tilde, split_on_first_column};
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
-use crate::macros::{bootstrap_db_macros, parse_macros, parse_stored_statements};
+use crate::macros::{bootstrap_db_macros, parse_macros, parse_stored_statements, periodic_macro};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
@@ -84,6 +84,10 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             return Result::Err(res.err().unwrap());
         }
 
+        for (_, macr) in &macros_def {
+            periodic_macro(macr.to_owned(), db_name.to_owned());
+        }
+
         let res = bootstrap_backup(true, &dbconf, &db_name, &db, &mut conn); // in-mem db is always new
         if res.is_err() {
             let _ = conn.close();
@@ -92,6 +96,8 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             }
             return Result::Err(res.err().unwrap());
         }
+
+        periodic_backup(dbconf.to_owned(), db_name.to_owned(), db.to_owned());
 
         if dbconf.read_only {
             conn.execute("PRAGMA query_only = true", [])?;
@@ -102,14 +108,14 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         }
 
         let db_cfg = Db {
-            path: db.clone(),
+            path: db.to_owned(),
             conf: dbconf,
             stored_statements,
             macros: macros_def,
         };
 
-        db_map.insert(db_name.clone(), db_cfg);
-        mutexes.insert(db_name.clone(), Mutex::new(conn));
+        db_map.insert(db_name.to_owned(), db_cfg);
+        mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
     for db in &cl.mem_db {
         let (db_name, yaml) = split_on_first_column(db);
@@ -137,11 +143,17 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             return Result::Err(res.err().unwrap());
         }
 
+        for (_, macr) in &macros_def {
+            periodic_macro(macr.to_owned(), db_name.to_owned());
+        }
+
         let res = bootstrap_backup(true, &dbconf, &db_name, db, &mut conn); // in-mem db is always new
         if res.is_err() {
             let _ = conn.close();
             return Result::Err(res.err().unwrap());
         }
+
+        periodic_backup(dbconf.to_owned(), db_name.to_owned(), db.to_owned());
 
         if dbconf.read_only {
             conn.execute("PRAGMA query_only = true", [])?;
@@ -152,15 +164,14 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
         }
 
         let db_cfg = Db {
-            path: db.clone(),
+            path: db.to_owned(),
             conf: dbconf,
             stored_statements,
             macros: macros_def,
         };
 
-        let db_name = to_base_name(&db);
-        db_map.insert(db_name.clone(), db_cfg);
-        mutexes.insert(db_name.clone(), Mutex::new(conn));
+        db_map.insert(db_name.to_owned(), db_cfg);
+        mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
     match MUTEXES.set(mutexes) {
         Ok(_) => Ok(db_map),

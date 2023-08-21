@@ -44,7 +44,7 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
 
     params
         .iter()
-        .for_each(|(k, v)| named_params.push((prepend_column(k), Box::new(v.clone()))));
+        .for_each(|(k, v)| named_params.push((prepend_column(k), Box::new(v.to_owned()))));
 
     NamedParamsContainer::from(named_params)
 }
