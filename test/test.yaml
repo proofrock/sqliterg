@@ -35,8 +35,8 @@ macros:
       - DELETE FROM AUTH
       - INSERT INTO AUTH VALUES ('myUser', 'ciao')
     execution:
-#      onCreate: true
-#      onStartup: false
+#       onCreate: true
+      onStartup: true
 #      period: 5 # in minutes, <= 0: never
       webService:
         authToken: ciao
