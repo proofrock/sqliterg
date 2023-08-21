@@ -45,6 +45,10 @@ pub fn default_as_true() -> bool {
     true
 }
 
+pub fn default_as_zero() -> i32 {
+    0
+}
+
 pub fn file_exists(path: &String) -> bool {
     let path = Path::new(path);
     Path::new(path).exists()

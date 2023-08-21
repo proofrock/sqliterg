@@ -1,3 +1,4 @@
+- period in ExecutionMode
 - Add descriptive error messages on parsing
 - Tests!
 

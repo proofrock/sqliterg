@@ -80,17 +80,13 @@ async fn main() -> std::io::Result<()> {
         let dir = dir.clone();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
-            let mut scop: Scope = scope(format!("/{}", db_name.clone()).as_str())
+            let scop: Scope = scope(format!("/{}", db_name.clone()).as_str())
                 .app_data(Data::new(db_name.clone()))
                 .app_data(Data::new(db_conf.clone()))
                 .guard(guard::Header("content-type", "application/json"))
-                .route("/exec", post().to(logic::handler));
-            if db_conf.conf.backup_endpoint.is_some() {
-                scop = scop.route("/backup", post().to(backup::handler));
-            }
-            if db_conf.conf.macros_endpoint.is_some() {
-                scop = scop.route("/macro/{macro_name}", post().to(macros::handler));
-            }
+                .route("/exec", post().to(logic::handler))
+                .route("/backup", post().to(backup::handler))
+                .route("/macro/{macro_name}", post().to(macros::handler));
             match &db_conf.conf.cors_origin {
                 Some(orig) => {
                     let mut cors = Cors::default().allowed_methods(vec!["POST"]);

@@ -19,11 +19,11 @@ use std::{collections::HashMap, path::Path};
 use eyre::Result;
 use rusqlite::Connection;
 
-use crate::backup::do_backup;
+use crate::backup::bootstrap_backup;
 use crate::commandline::AppConfig;
 use crate::commons::{abort, file_exists, resolve_tilde, split_on_first_column};
-use crate::db_config::{parse_dbconf, DbConfig};
-use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
+use crate::db_config::{parse_dbconf, DbConfig, Macro};
+use crate::macros::{bootstrap_db_macros, parse_macros, parse_stored_statements};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
@@ -33,7 +33,7 @@ pub struct Db {
 
     // calculated
     pub stored_statements: HashMap<String, String>,
-    pub macros: HashMap<String, Vec<String>>,
+    pub macros: HashMap<String, Macro>,
 }
 
 fn to_base_name(path: &String) -> String {
@@ -54,6 +54,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
     let mut mutexes = HashMap::new();
     for db in &cl.db {
         let db = resolve_tilde(db);
+        let db_name = to_base_name(&db);
 
         let yaml = to_yaml_path(&db);
         let dbconf = if !file_exists(&yaml) {
@@ -74,13 +75,7 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
 
         let mut conn = Connection::open(&db)?;
 
-        let res = exec_init_startup_macros(
-            is_new_db,
-            dbconf.init_macros.clone(),
-            dbconf.startup_macros.clone(),
-            &macros_def,
-            &mut conn,
-        );
+        let res = bootstrap_db_macros(is_new_db, &dbconf, &db_name, &macros_def, &mut conn);
         if res.is_err() {
             let _ = conn.close();
             if is_new_db {
@@ -89,16 +84,13 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             return Result::Err(res.err().unwrap());
         }
 
-        match &dbconf.backup {
-            Some(bkp) => {
-                if bkp.at_startup {
-                    let res = do_backup(&bkp, &db, &conn);
-                    if !res.success {
-                        eprintln!("Cannot perform backup: {}", res.message.unwrap());
-                    }
-                }
+        let res = bootstrap_backup(true, &dbconf, &db_name, &db, &mut conn); // in-mem db is always new
+        if res.is_err() {
+            let _ = conn.close();
+            if is_new_db {
+                let _ = remove_file(Path::new(&db));
             }
-            None => (),
+            return Result::Err(res.err().unwrap());
         }
 
         if dbconf.read_only {
@@ -116,7 +108,6 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
             macros: macros_def,
         };
 
-        let db_name = to_base_name(&db);
         db_map.insert(db_name.clone(), db_cfg);
         mutexes.insert(db_name.clone(), Mutex::new(conn));
     }
@@ -140,28 +131,16 @@ pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
 
         let mut conn = Connection::open(format! {"file:{}?mode=memory", db_name})?;
 
-        let res = exec_init_startup_macros(
-            true, // in-mem db is always new
-            dbconf.init_macros.clone(),
-            dbconf.startup_macros.clone(),
-            &macros_def,
-            &mut conn,
-        );
+        let res = bootstrap_db_macros(true, &dbconf, &db_name, &macros_def, &mut conn); // in-mem db is always new
         if res.is_err() {
             let _ = conn.close();
             return Result::Err(res.err().unwrap());
         }
 
-        match &dbconf.backup {
-            Some(bkp) => {
-                if bkp.at_startup {
-                    let res = do_backup(&bkp, &format!("{}.db", db_name), &conn);
-                    if !res.success {
-                        eprintln!("Cannot perform backup: {}", res.message.unwrap());
-                    }
-                }
-            }
-            None => (),
+        let res = bootstrap_backup(true, &dbconf, &db_name, db, &mut conn); // in-mem db is always new
+        if res.is_err() {
+            let _ = conn.close();
+            return Result::Err(res.err().unwrap());
         }
 
         if dbconf.read_only {

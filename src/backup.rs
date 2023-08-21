@@ -15,12 +15,13 @@
 use std::{ops::DerefMut, path::Path as SysPath};
 
 use actix_web::{web, Responder};
+use eyre::Result;
 use rusqlite::Connection;
 
 use crate::{
     auth::process_creds,
     commons::{delete_old_files, file_exists, now, resolve_tilde},
-    db_config::Backup,
+    db_config::{Backup, DbConfig},
     main_config::Db,
     req_res::{Response, Token},
     MUTEXES,
@@ -42,7 +43,7 @@ fn gen_bkp_file(directory: &str, filepath: &str) -> String {
     new_file_path.into_os_string().into_string().unwrap()
 }
 
-pub fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response {
+fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response {
     let bkp_dir = resolve_tilde(&bkp.backup_dir);
 
     if !file_exists(&bkp_dir) {
@@ -75,14 +76,19 @@ pub async fn handler(
     db_name: web::Data<String>,
     token: web::Query<Token>,
 ) -> impl Responder {
+    let db_name = db_name.to_string();
     match &db_conf.conf.backup {
-        Some(bkp) => match &db_conf.conf.backup_endpoint {
-            Some(be) => {
-                if !process_creds(&token.token, &be.auth_token, &be.hashed_auth_token) {
-                    return Response::new_err(401, -1, "Token mismatch".to_string());
+        Some(bkp) => match &bkp.execution.web_service {
+            Some(bkp_ws) => {
+                if !process_creds(&token.token, &bkp_ws.auth_token, &bkp_ws.hashed_auth_token) {
+                    return Response::new_err(
+                        401,
+                        -1,
+                        format!("In database '{}', backup: token mismatch", db_name),
+                    );
                 }
 
-                let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
+                let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
                 let mut db_lock_guard = db_lock.lock().unwrap();
                 let conn = db_lock_guard.deref_mut();
 
@@ -92,15 +98,42 @@ pub async fn handler(
                 404,
                 -1,
                 format!(
-                    "Database '{}' doesn't have a backupEndpoint",
-                    db_name.as_str()
+                    "Database '{}' doesn't have a backup.execution.webService node",
+                    db_name
                 ),
             ),
         },
         None => Response::new_err(
             404,
             -1,
-            format!("Database '{}' doesn't have a backup node", db_name.as_str()),
+            format!("Database '{}' doesn't have a backup node", db_name),
         ),
     }
+}
+
+pub fn bootstrap_backup(
+    is_new_db: bool,
+    db_conf: &DbConfig,
+    db_name: &String,
+    db_path: &String,
+    conn: &Connection,
+) -> Result<()> {
+    match &db_conf.backup {
+        Some(bkp) => {
+            let bex = &bkp.execution;
+            if bex.on_startup || (is_new_db && bex.on_create) {
+                let res = do_backup(&bkp, db_path, conn);
+                if !res.success {
+                    return Result::Err(eyre!(
+                        "Backup of database '{}': {}",
+                        db_name,
+                        res.message.unwrap()
+                    ));
+                }
+            }
+        }
+        None => (),
+    }
+
+    Result::Ok(())
 }
