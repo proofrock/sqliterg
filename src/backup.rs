@@ -25,7 +25,7 @@ use rusqlite::Connection;
 
 use crate::{
     auth::process_creds,
-    commons::{abort, delete_old_files, file_exists, resolve_tilde},
+    commons::{abort, delete_old_files, file_exists},
     db_config::{Backup, DbConfig},
     main_config::Db,
     req_res::{Response, Token},
@@ -49,13 +49,15 @@ fn gen_bkp_file(directory: &str, filepath: &str) -> String {
 }
 
 fn do_backup(bkp: &Backup, db_path: &String, conn: &Connection) -> Response {
-    let bkp_dir = resolve_tilde(&bkp.backup_dir);
-
-    if !file_exists(&bkp_dir) {
-        return Response::new_err(404, -1, format!("Backup dir '{}' not found", bkp_dir));
+    if !file_exists(&bkp.backup_dir) {
+        return Response::new_err(
+            404,
+            -1,
+            format!("Backup dir '{}' not found", &bkp.backup_dir),
+        );
     }
 
-    let file = gen_bkp_file(&bkp_dir, db_path);
+    let file = gen_bkp_file(&bkp.backup_dir, db_path);
     if file_exists(&file) {
         Response::new_err(409, -1, format!("File '{}' already exists", file))
     } else {
@@ -157,8 +159,6 @@ pub fn periodic_backup(db_conf: DbConfig, db_name: String, db_path: String) {
 
                     loop {
                         interval.tick().await;
-
-                        let bkp_dir = resolve_tilde(&bkp_dir);
 
                         if !file_exists(&bkp_dir) {
                             eprintln!("Backup dir '{}' not found", bkp_dir);

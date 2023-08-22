@@ -21,10 +21,10 @@ use rusqlite::Connection;
 use crate::backup::{bootstrap_backup, periodic_backup};
 use crate::commandline::AppConfig;
 use crate::commons::{
-    abort, assert, file_exists, if_abort_rusqlite, resolve_tilde, split_on_first_column,
+    abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde, split_on_first_colon,
 };
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
-use crate::macros::{bootstrap_db_macros, parse_macros, periodic_macro};
+use crate::macros::{bootstrap_db_macros, periodic_macro, resolve_macros};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
@@ -59,15 +59,55 @@ fn compose_single_db(
     is_new_db: bool,
     is_mem: bool,
 ) -> (Db, Connection) {
+    println!("- Database '{}'", db_name);
+
+    if is_mem {
+        println!("  - in-memory database");
+    } else {
+        println!("  - loading from file '{}'", db_path);
+        if is_new_db {
+            println!("  - file not present, it will be created");
+        }
+    }
+
     let mut dbconf = if yaml == "" || !file_exists(yaml) {
-        println!("YAML file for db ({}) not found: assuming defaults", yaml);
+        println!("  - companion file not found: assuming defaults");
         DbConfig::default()
     } else {
-        match parse_dbconf(yaml) {
-            Ok(dbc) => dbc,
-            Err(e) => abort(format!("Parsing YAML file {}: {}", yaml, e.to_string())),
-        }
+        println!("  - parsing companion file '{}'", yaml);
+        parse_dbconf(yaml).unwrap_or_else(|e| abort(format!("parsing YAML {}: {}", yaml, e)))
     };
+
+    if let Some(b) = &mut dbconf.backup {
+        assert(
+            b.num_files > 0,
+            format!("backup: num_files must be 1 or more"),
+        );
+        let bd = resolve_tilde(&b.backup_dir);
+        assert(
+            is_dir(&bd),
+            format!("backup directory does not exist: {}", bd),
+        );
+        b.backup_dir = bd;
+    }
+
+    if let Some(a) = &dbconf.auth {
+        assert(
+            a.by_credentials.is_none() != a.by_query.is_none(),
+            format!("auth: exactly one among by_credentials and by_query must be specified"),
+        );
+        if let Some(vc) = &a.by_credentials {
+            for c in vc {
+                assert(
+                    c.password.is_none() && c.hashed_password.is_none(),
+                    format!(
+                        "auth: user '{}': password or hashed_password must be specified",
+                        &c.user
+                    ),
+                );
+            }
+        }
+    }
 
     let stored_statements = dbconf
         .to_owned()
@@ -79,7 +119,7 @@ fn compose_single_db(
         })
         .unwrap_or_default();
 
-    parse_macros(&mut dbconf, &stored_statements);
+    resolve_macros(&mut dbconf, &stored_statements);
 
     let mut conn = if_abort_rusqlite(Connection::open(conn_string));
 
@@ -157,7 +197,7 @@ pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
         mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
     for db in &cl.mem_db {
-        let (db_name, yaml) = split_on_first_column(db);
+        let (db_name, yaml) = split_on_first_colon(db);
         check_db_name(&db_name, &db_map);
 
         let yaml = resolve_tilde(&yaml);

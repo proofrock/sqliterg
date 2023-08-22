@@ -57,7 +57,7 @@ fn get_sqlite_version() -> String {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!(
-        "{} v{}. based on SQLite v{}",
+        "{} v{}. based on SQLite v{}\n",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
         get_sqlite_version()
@@ -101,6 +101,6 @@ async fn main() -> std::io::Result<()> {
     };
 
     let bind_addr = format!("{}:{}", cli.bind_host, cli.port);
-    println!("Listening on {}", &bind_addr);
+    println!("- Listening on {}", &bind_addr);
     HttpServer::new(app_lambda).bind(bind_addr)?.run().await
 }

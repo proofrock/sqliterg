@@ -22,7 +22,7 @@ use serde_json::{json, Map as JsonMap, Value as JsonValue};
 
 use crate::{
     auth::process_auth,
-    commons::{check_stored_stmt, prepend_column, NamedParamsContainer},
+    commons::{check_stored_stmt, prepend_colon, NamedParamsContainer},
     db_config::{AuthMode, DbConfig},
     main_config::Db,
     req_res::{self, ReqTransactionItem, Response, ResponseItem},
@@ -45,7 +45,7 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
 
     params
         .iter()
-        .for_each(|(k, v)| named_params.push((prepend_column(k), Box::new(v.to_owned()))));
+        .for_each(|(k, v)| named_params.push((prepend_colon(k), Box::new(v.to_owned()))));
 
     NamedParamsContainer::from(named_params)
 }

@@ -30,8 +30,10 @@ pub fn abort(str: String) -> ! {
     exit(1);
 }
 
-pub fn prepend_column(str: &String) -> String {
-    let mut ret = ":".to_string();
+const COLON: &str = ":";
+
+pub fn prepend_colon(str: &String) -> String {
+    let mut ret = COLON.to_string();
     ret.push_str(str);
     return ret;
 }
@@ -136,7 +138,7 @@ pub fn resolve_tilde(p: &String) -> String {
     shellexpand::tilde(p).into_owned()
 }
 
-pub fn split_on_first_column(input: &String) -> (String, String) {
+pub fn split_on_first_colon(input: &String) -> (String, String) {
     let mut parts = input.splitn(2, ':');
     let first_part = parts.next().unwrap_or_default().to_string();
     let second_part = parts.next().unwrap_or_default().to_string();

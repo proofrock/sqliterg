@@ -35,20 +35,17 @@ use crate::{
 };
 
 /// Parses the macro list and substitutes the references to stored statements with the target sql
-pub fn parse_macros(dbconf: &mut DbConfig, stored_statements: &HashMap<String, String>) {
-    match &mut dbconf.macros {
-        Some(ms) => {
-            for el in ms {
-                let mut statements: Vec<String> = vec![];
-                for statement in el.statements.to_owned() {
-                    let statement =
-                        if_abort_eyre(check_stored_stmt(&statement, stored_statements, false));
-                    statements.push(statement.to_owned());
-                }
-                el.statements = statements;
+pub fn resolve_macros(dbconf: &mut DbConfig, stored_statements: &HashMap<String, String>) {
+    if let Some(ms) = &mut dbconf.macros {
+        for macr in ms {
+            let mut statements: Vec<String> = vec![];
+            for statement in macr.statements.to_owned() {
+                let statement =
+                    if_abort_eyre(check_stored_stmt(&statement, stored_statements, false));
+                statements.push(statement.to_owned());
             }
+            macr.statements = statements;
         }
-        None => (),
     }
 }
 
