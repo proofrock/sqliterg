@@ -21,12 +21,11 @@ use actix_web::{
     },
     web, Responder,
 };
-use eyre::Result;
 use rusqlite::Connection;
 
 use crate::{
     auth::process_creds,
-    commons::{delete_old_files, file_exists, resolve_tilde},
+    commons::{abort, delete_old_files, file_exists, resolve_tilde},
     db_config::{Backup, DbConfig},
     main_config::Db,
     req_res::{Response, Token},
@@ -123,14 +122,14 @@ pub fn bootstrap_backup(
     db_name: &String,
     db_path: &String,
     conn: &Connection,
-) -> Result<()> {
+) {
     match &db_conf.backup {
         Some(bkp) => {
             let bex = &bkp.execution;
             if bex.on_startup || (is_new_db && bex.on_create) {
                 let res = do_backup(bkp, db_path, conn);
                 if !res.success {
-                    return Result::Err(eyre!(
+                    abort(format!(
                         "Backup of database '{}': {}",
                         db_name,
                         res.message.unwrap()
@@ -140,11 +139,9 @@ pub fn bootstrap_backup(
         }
         None => (),
     }
-
-    Result::Ok(())
 }
 
-pub fn periodic_backup(db_conf: DbConfig, db_name: String, db_path: String) -> () {
+pub fn periodic_backup(db_conf: DbConfig, db_name: String, db_path: String) {
     match db_conf.backup {
         Some(bkp) => {
             let period = bkp.execution.period;

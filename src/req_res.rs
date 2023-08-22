@@ -116,7 +116,7 @@ impl Response {
             results: None,
             req_idx: Some(req_idx),
             message: Some(msg),
-            status_code: status_code,
+            status_code,
             success: false,
         }
     }

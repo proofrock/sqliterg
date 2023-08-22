@@ -29,6 +29,7 @@ use actix_web::{
     web::{post, scope, Data},
     App, HttpServer, Scope,
 };
+use clap::Parser;
 use rusqlite::Connection;
 
 pub mod auth;
@@ -41,10 +42,7 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{
-    commons::{abort, resolve_tilde_opt},
-    main_config::compose_db_map,
-};
+use crate::{commandline::AppConfig, main_config::compose_db_map};
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
@@ -56,7 +54,6 @@ fn get_sqlite_version() -> String {
         .unwrap()
 }
 
-// curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!(
@@ -66,18 +63,14 @@ async fn main() -> std::io::Result<()> {
         get_sqlite_version()
     );
 
-    let cli = commandline::parse_cli();
+    let cli = AppConfig::parse();
 
     // side effect of compose_db_map: populate MUTEXES
-    let db_map = match compose_db_map(&cli) {
-        Ok(db_map) => db_map,
-        Err(e) => abort(format!("{}", e.to_string())),
-    };
-
-    let dir = resolve_tilde_opt(&cli.serve_dir);
+    // aborts on error
+    let db_map = compose_db_map(&cli);
 
     let app_lambda = move || {
-        let dir = dir.to_owned();
+        let dir = cli.serve_dir.to_owned();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
             let scop: Scope = scope(format!("/{}", db_name.to_owned()).as_str())

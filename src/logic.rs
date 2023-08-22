@@ -39,6 +39,7 @@ fn val_db2val_json(val: Value) -> JsonValue {
     }
 }
 
+// adapted from serde-rusqlite, https://github.com/twistedfall/serde_rusqlite/blob/master/LICENSE
 fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContainer {
     let mut named_params: Vec<(String, Box<dyn ToSql>)> = Vec::new();
 
@@ -63,8 +64,7 @@ fn do_query(
     let mut rows = match values {
         Some(p) => {
             let map = p.as_object().unwrap();
-            let params = calc_named_params(map);
-            stmt.query(params.slice().as_slice())?
+            stmt.query(calc_named_params(map).slice().as_slice())?
         }
         None => stmt.query([])?,
     };
@@ -103,8 +103,7 @@ fn do_statement(
         }
         1 => {
             let map = params.get(0).unwrap().as_object().unwrap();
-            let params = calc_named_params(&map);
-            let changed_rows = tx.execute(sql, params.slice().as_slice())?;
+            let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
             (None, Some(changed_rows), None)
         }
         _ => {
@@ -112,8 +111,7 @@ fn do_statement(
             let mut ret = vec![];
             for p in params {
                 let map = p.as_object().unwrap();
-                let params = calc_named_params(&map);
-                let changed_rows = stmt.execute(params.slice().as_slice())?;
+                let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
                 ret.push(changed_rows);
             }
             (None, None, Some(ret))

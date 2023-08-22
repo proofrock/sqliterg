@@ -27,52 +27,29 @@ use rusqlite::Connection;
 
 use crate::{
     auth::process_creds,
-    commons::check_stored_stmt,
+    commons::{check_stored_stmt, if_abort_eyre},
     db_config::{DbConfig, Macro},
     main_config::Db,
     req_res::{Response, ResponseItem, Token},
     MUTEXES,
 };
 
-pub fn parse_stored_statements(dbconf: &DbConfig) -> HashMap<String, String> {
-    let mut stored_statements = HashMap::new();
-    match &dbconf.stored_statements {
-        Some(ss) => {
-            for el in ss {
-                stored_statements.insert(el.id.to_owned(), el.sql.to_owned());
-            }
-        }
-        None => (),
-    }
-    stored_statements
-}
-
-pub fn parse_macros(
-    dbconf: &DbConfig,
-    stored_statements: &HashMap<String, String>,
-) -> Result<HashMap<String, Macro>> {
-    let mut macros = HashMap::new();
-    match &dbconf.macros {
+/// Parses the macro list and substitutes the references to stored statements with the target sql
+pub fn parse_macros(dbconf: &mut DbConfig, stored_statements: &HashMap<String, String>) {
+    match &mut dbconf.macros {
         Some(ms) => {
             for el in ms {
                 let mut statements: Vec<String> = vec![];
                 for statement in el.statements.to_owned() {
-                    let statement = check_stored_stmt(&statement, stored_statements, false)?;
+                    let statement =
+                        if_abort_eyre(check_stored_stmt(&statement, stored_statements, false));
                     statements.push(statement.to_owned());
                 }
-                macros.insert(
-                    el.id.to_owned(),
-                    Macro {
-                        id: el.id.to_owned(),
-                        statements: statements,
-                        execution: el.execution.to_owned(),
-                    },
-                );
+                el.statements = statements;
             }
         }
         None => (),
     }
-    Ok(macros)
 }
 
 fn exec_macro_single(macr: &Macro, conn: &mut Connection) -> Response {
@@ -117,7 +94,6 @@ pub fn bootstrap_db_macros(
     is_new_db: bool,
     db_conf: &DbConfig,
     db_name: &String,
-    macros_resolved_stored_statements: &HashMap<String, Macro>,
     conn: &mut Connection,
 ) -> Result<()> {
     match &db_conf.macros {
@@ -128,7 +104,6 @@ pub fn bootstrap_db_macros(
             };
 
             for macr in macros {
-                let macr = macros_resolved_stored_statements.get(&macr.id).unwrap();
                 match &macr.execution {
                     Some(mex) => {
                         if mex.on_startup || (is_new_db && mex.on_create) {
