@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{collections::HashMap, ops::DerefMut, time::Duration};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    time::Duration,
+};
 
 use actix_web::{
     rt::{
@@ -35,7 +39,11 @@ use crate::{
 };
 
 /// Parses the macro list and substitutes the references to stored statements with the target sql
-pub fn resolve_macros(dbconf: &mut DbConfig, stored_statements: &HashMap<String, String>) {
+pub fn resolve_macros(
+    dbconf: &mut DbConfig,
+    stored_statements: &HashMap<String, String>,
+) -> HashMap<String, Macro> {
+    let mut ret: HashMap<String, Macro> = HashMap::new();
     if let Some(ms) = &mut dbconf.macros {
         for macr in ms {
             let mut statements: Vec<String> = vec![];
@@ -45,8 +53,10 @@ pub fn resolve_macros(dbconf: &mut DbConfig, stored_statements: &HashMap<String,
                 statements.push(statement.to_owned());
             }
             macr.statements = statements;
+            ret.insert(macr.id.to_owned(), macr.to_owned());
         }
     }
+    ret
 }
 
 fn exec_macro_single(macr: &Macro, conn: &mut Connection) -> Response {
@@ -148,7 +158,7 @@ pub async fn handler(
     macro_name: Path<String>,
     token: web::Query<Token>,
 ) -> impl Responder {
-    let db_conf = db_map.get(db_name.as_str());
+    let db_conf = db_map.get(db_name.deref());
     match db_conf {
         Some(db_conf) => match db_conf.macros.get(&macro_name.to_string()) {
             Some(macr) => match &macr.execution {
@@ -201,7 +211,7 @@ pub async fn handler(
                 )
             }
         },
-        None => Response::new_err(404, -1, format!("Unknown database '{}'", db_name.as_str())),
+        None => Response::new_err(404, -1, format!("Unknown database '{}'", &db_name)),
     }
 }
 

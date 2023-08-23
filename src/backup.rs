@@ -138,6 +138,7 @@ pub fn bootstrap_backup(
                     ));
                 }
             }
+            println!("  - backup configured");
         }
         None => (),
     }

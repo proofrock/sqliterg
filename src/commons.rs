@@ -19,6 +19,7 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     fs::{read_dir, remove_file},
+    ops::Deref,
     path::Path,
     process::exit,
 };
@@ -169,7 +170,7 @@ impl NamedParamsContainer {
     pub fn slice(&self) -> Vec<(&str, &dyn rusqlite::types::ToSql)> {
         self.0
             .iter()
-            .map(|el| (el.0.as_str(), el.1.borrow()))
+            .map(|el| (el.0.deref(), el.1.borrow()))
             .collect()
     }
 }

@@ -19,6 +19,7 @@ extern crate eyre;
 
 use std::{
     collections::HashMap,
+    ops::Deref,
     sync::{Mutex, OnceLock},
 };
 
@@ -69,11 +70,15 @@ async fn main() -> std::io::Result<()> {
     // aborts on error
     let db_map = compose_db_map(&cli);
 
+    if let Some(sd) = &cli.serve_dir {
+        println!("  - serving directory: {}", sd);
+    };
+
     let app_lambda = move || {
         let dir = cli.serve_dir.to_owned();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
-            let scop: Scope = scope(format!("/{}", db_name.to_owned()).as_str())
+            let scop: Scope = scope(format!("/{}", db_name.to_owned()).deref())
                 .app_data(Data::new(db_name.to_owned()))
                 .app_data(Data::new(db_conf.to_owned()))
                 .guard(guard::Header("content-type", "application/json"))
@@ -86,7 +91,7 @@ async fn main() -> std::io::Result<()> {
                     if orig == "*" {
                         cors = cors.allow_any_origin();
                     } else {
-                        cors = cors.allowed_origin(orig.as_str());
+                        cors = cors.allowed_origin(&orig);
                     }
                     a = a.service(scop.wrap(cors))
                 }
@@ -94,8 +99,8 @@ async fn main() -> std::io::Result<()> {
             }
         }
 
-        if dir.is_some() {
-            a = a.service(Files::new("/", dir.unwrap()));
+        if let Some(dir) = dir {
+            a = a.service(Files::new("/", dir));
         };
         return a;
     };

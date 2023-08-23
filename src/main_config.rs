@@ -64,9 +64,9 @@ fn compose_single_db(
     if is_mem {
         println!("  - in-memory database");
     } else {
-        println!("  - loading from file '{}'", db_path);
+        println!("  - from file '{}'", db_path);
         if is_new_db {
-            println!("  - file not present, it will be created");
+            println!("    - file not present, it will be created");
         }
     }
 
@@ -109,7 +109,7 @@ fn compose_single_db(
         }
     }
 
-    let stored_statements = dbconf
+    let stored_statements: HashMap<String, String> = dbconf
         .to_owned()
         .stored_statements
         .map(|ss| {
@@ -119,7 +119,21 @@ fn compose_single_db(
         })
         .unwrap_or_default();
 
-    resolve_macros(&mut dbconf, &stored_statements);
+    if stored_statements.len() > 0 {
+        println!(
+            "  - {} stored statements configured",
+            stored_statements.len()
+        );
+        if dbconf.use_only_stored_statements {
+            println!("    - allowing only stored statements for requests")
+        }
+    }
+
+    let macros: HashMap<String, Macro> = resolve_macros(&mut dbconf, &stored_statements);
+
+    if macros.len() > 0 {
+        println!("  - {} macros configured", macros.len());
+    }
 
     let mut conn = if_abort_rusqlite(Connection::open(conn_string));
 
@@ -131,16 +145,6 @@ fn compose_single_db(
         }
         abort(res.err().unwrap().to_string());
     }
-
-    let macros: HashMap<String, Macro> = dbconf
-        .to_owned()
-        .macros
-        .map(|mv: Vec<Macro>| {
-            mv.iter()
-                .map(|el| (el.id.to_owned(), el.to_owned()))
-                .collect()
-        })
-        .unwrap_or_default();
 
     for macr in macros.values() {
         periodic_macro(macr.to_owned(), db_name.to_owned());
@@ -156,10 +160,14 @@ fn compose_single_db(
 
     if dbconf.read_only {
         if_abort_rusqlite(conn.execute("PRAGMA query_only = true", []));
+        println!("  - read-only");
     }
 
     if !dbconf.disable_wal_mode {
         if_abort_rusqlite(conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(())));
+        println!("  - WAL mode enabled");
+    } else {
+        println!("  - WAL mode disabled");
     }
 
     let db_conf = Db {
