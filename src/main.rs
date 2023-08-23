@@ -19,6 +19,7 @@ extern crate eyre;
 
 use std::{
     collections::HashMap,
+    ops::Deref,
     sync::{Mutex, OnceLock},
 };
 
@@ -29,6 +30,7 @@ use actix_web::{
     web::{post, scope, Data},
     App, HttpServer, Scope,
 };
+use clap::Parser;
 use rusqlite::Connection;
 
 pub mod auth;
@@ -41,10 +43,7 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{
-    commons::{abort, resolve_tilde_opt},
-    main_config::compose_db_map,
-};
+use crate::{commandline::AppConfig, main_config::compose_db_map};
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
@@ -56,48 +55,43 @@ fn get_sqlite_version() -> String {
         .unwrap()
 }
 
-// curl -X POST -H "Content-Type: application/json" -d '{"transaction":[{"statement":"DELETE FROM TBL"},{"query":"SELECT * FROM TBL"},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","values":{"id":0,"val":"zero"}},{"statement":"INSERT INTO TBL (ID, VAL) VALUES (:id, :val)","valuesBatch":[{"id":1,"val":"uno"},{"id":2,"val":"due"}]},{"query":"SELECT * FROM TBL WHERE ID=:id","values":{"id":1}},{"statement":"DELETE FROM TBL"}]}' http://localhost:12321/query
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     println!(
-        "{} v{}. based on SQLite v{}",
+        "{} v{}. based on SQLite v{}\n",
         env!("CARGO_PKG_NAME"),
         env!("CARGO_PKG_VERSION"),
         get_sqlite_version()
     );
 
-    let cli = commandline::parse_cli();
+    let cli = AppConfig::parse();
 
     // side effect of compose_db_map: populate MUTEXES
-    let db_map = match compose_db_map(&cli) {
-        Ok(db_map) => db_map,
-        Err(e) => abort(format!("{}", e.to_string())),
+    // aborts on error
+    let db_map = compose_db_map(&cli);
+
+    if let Some(sd) = &cli.serve_dir {
+        println!("  - serving directory: {}", sd);
     };
 
-    let dir = resolve_tilde_opt(&cli.serve_dir);
-
     let app_lambda = move || {
-        let dir = dir.clone();
+        let dir = cli.serve_dir.to_owned();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
-            let mut scop: Scope = scope(format!("/{}", db_name.clone()).as_str())
-                .app_data(Data::new(db_name.clone()))
-                .app_data(Data::new(db_conf.clone()))
+            let scop: Scope = scope(format!("/{}", db_name.to_owned()).deref())
+                .app_data(Data::new(db_name.to_owned()))
+                .app_data(Data::new(db_conf.to_owned()))
                 .guard(guard::Header("content-type", "application/json"))
-                .route("/exec", post().to(logic::handler));
-            if db_conf.conf.backup_endpoint.is_some() {
-                scop = scop.route("/backup", post().to(backup::handler));
-            }
-            if db_conf.conf.macros_endpoint.is_some() {
-                scop = scop.route("/macro/{macro_name}", post().to(macros::handler));
-            }
+                .route("/exec", post().to(logic::handler))
+                .route("/backup", post().to(backup::handler))
+                .route("/macro/{macro_name}", post().to(macros::handler));
             match &db_conf.conf.cors_origin {
                 Some(orig) => {
                     let mut cors = Cors::default().allowed_methods(vec!["POST"]);
                     if orig == "*" {
                         cors = cors.allow_any_origin();
                     } else {
-                        cors = cors.allowed_origin(orig.as_str());
+                        cors = cors.allowed_origin(&orig);
                     }
                     a = a.service(scop.wrap(cors))
                 }
@@ -105,13 +99,13 @@ async fn main() -> std::io::Result<()> {
             }
         }
 
-        if dir.is_some() {
-            a = a.service(Files::new("/", dir.unwrap()));
+        if let Some(dir) = dir {
+            a = a.service(Files::new("/", dir));
         };
         return a;
     };
 
     let bind_addr = format!("{}:{}", cli.bind_host, cli.port);
-    println!("Listening on {}", &bind_addr);
+    println!("- Listening on {}", &bind_addr);
     HttpServer::new(app_lambda).bind(bind_addr)?.run().await
 }

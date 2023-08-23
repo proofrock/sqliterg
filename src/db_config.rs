@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use eyre::Result;
 use std::fs::File;
 use std::io::Read;
 
-use crate::commons::{default_as_false, default_as_true};
+use crate::commons::{default_as_false, default_as_true, default_as_zero};
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum AuthMode {
@@ -43,17 +44,38 @@ pub struct Credentials {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Macro {
+pub struct StoredStatement {
     pub id: String,
-    pub statements: Vec<String>,
+    pub sql: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct MacrosEndpoint {
+pub struct ExecutionWebService {
     #[serde(rename = "authToken")]
     pub auth_token: Option<String>,
     #[serde(rename = "hashedAuthToken")]
     pub hashed_auth_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct ExecutionMode {
+    #[serde(rename = "onCreate")]
+    #[serde(default = "default_as_false")]
+    pub on_create: bool,
+    #[serde(rename = "onStartup")]
+    #[serde(default = "default_as_false")]
+    pub on_startup: bool,
+    #[serde(default = "default_as_zero")]
+    pub period: i32,
+    #[serde(rename = "webService")]
+    pub web_service: Option<ExecutionWebService>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Macro {
+    pub id: String,
+    pub statements: Vec<String>,
+    pub execution: Option<ExecutionMode>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -62,16 +84,7 @@ pub struct Backup {
     pub backup_dir: String,
     #[serde(rename = "numFiles")]
     pub num_files: usize,
-    #[serde(rename = "atStartup")]
-    pub at_startup: bool,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct BackupEndpoint {
-    #[serde(rename = "authToken")]
-    pub auth_token: Option<String>,
-    #[serde(rename = "hashedAuthToken")]
-    pub hashed_auth_token: Option<String>,
+    pub execution: ExecutionMode,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -94,19 +107,11 @@ pub struct DbConfig {
     #[serde(rename = "storedStatements")]
     pub stored_statements: Option<Vec<StoredStatement>>,
     pub macros: Option<Vec<Macro>>,
-    #[serde(rename = "initMacros")]
-    pub init_macros: Option<Vec<String>>,
-    #[serde(rename = "startupMacros")]
-    pub startup_macros: Option<Vec<String>>,
-    #[serde(rename = "macrosEndpoint")]
-    pub macros_endpoint: Option<MacrosEndpoint>,
     pub backup: Option<Backup>,
-    #[serde(rename = "backupEndpoint")]
-    pub backup_endpoint: Option<BackupEndpoint>,
 }
 
-impl DbConfig {
-    pub fn default() -> DbConfig {
+impl Default for DbConfig {
+    fn default() -> DbConfig {
         DbConfig {
             auth: None,
             disable_wal_mode: false,
@@ -116,25 +121,17 @@ impl DbConfig {
             use_only_stored_statements: false,
             stored_statements: None,
             macros: None,
-            init_macros: None,
-            startup_macros: None,
-            macros_endpoint: None,
             backup: None,
-            backup_endpoint: None,
         }
     }
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct StoredStatement {
-    pub id: String,
-    pub sql: String,
-}
-
-pub fn parse_dbconf(filename: &String) -> Result<DbConfig, Box<dyn std::error::Error>> {
+pub fn parse_dbconf(filename: &String) -> Result<DbConfig> {
     let mut file = File::open(filename)?;
     let mut content = String::new();
     file.read_to_string(&mut content)?;
 
-    Ok(serde_yaml::from_str(&content)?)
+    let ret = serde_yaml::from_str(&content)?;
+
+    Ok(ret)
 }

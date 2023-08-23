@@ -22,20 +22,17 @@ use crate::{
     req_res::ReqCredentials,
 };
 
+/// Given the provided password and the expected ones (unhashed and hashed), returns if
+/// the passwords match. All three passwords may be Options.
 pub fn process_creds(
     given_password: &Option<String>,
     password: &Option<String>,
     hashed_password: &Option<String>,
 ) -> bool {
-    match given_password {
-        Some(gp) => match password {
-            Some(p) => p == gp,
-            None => match hashed_password {
-                Some(hp) => equal_case_insensitive(&hp, &sha256(&gp)),
-                None => false,
-            },
-        },
-        None => false,
+    match (given_password, password, hashed_password) {
+        (Some(gp), Some(p), _) => gp == p,
+        (Some(gp), None, Some(hp)) => equal_case_insensitive(&hp, &sha256(&gp)),
+        _ => false,
     }
 }
 
@@ -73,7 +70,7 @@ pub fn process_auth(
             None => return false,
         },
         AuthMode::Inline => match auth_inline {
-            Some(auth_inline) => (auth_inline.user.clone(), auth_inline.password.clone()),
+            Some(auth_inline) => (auth_inline.user.to_owned(), auth_inline.password.to_owned()),
             None => return false,
         },
     };

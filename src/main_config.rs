@@ -16,24 +16,26 @@ use std::fs::remove_file;
 use std::sync::Mutex;
 use std::{collections::HashMap, path::Path};
 
-use eyre::Result;
 use rusqlite::Connection;
 
-use crate::backup::do_backup;
+use crate::backup::{bootstrap_backup, periodic_backup};
 use crate::commandline::AppConfig;
-use crate::commons::{abort, file_exists, resolve_tilde, split_on_first_column};
-use crate::db_config::{parse_dbconf, DbConfig};
-use crate::macros::{exec_init_startup_macros, parse_macros, parse_stored_statements};
+use crate::commons::{
+    abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde, split_on_first_colon,
+};
+use crate::db_config::{parse_dbconf, DbConfig, Macro};
+use crate::macros::{bootstrap_db_macros, periodic_macro, resolve_macros};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
 pub struct Db {
+    pub is_mem: bool,
     pub path: String,
     pub conf: DbConfig,
 
     // calculated
     pub stored_statements: HashMap<String, String>,
-    pub macros: HashMap<String, Vec<String>>,
+    pub macros: HashMap<String, Macro>,
 }
 
 fn to_base_name(path: &String) -> String {
@@ -43,148 +45,177 @@ fn to_base_name(path: &String) -> String {
 
 fn to_yaml_path(path: &String) -> String {
     let path = Path::new(&path);
-    let file_stem: &str = path.file_stem().unwrap().to_str().unwrap();
+    let file_stem = path.file_stem().unwrap().to_str().unwrap();
     let yaml_file_name = format!("{file_stem}.yaml");
     let yaml_path = path.with_file_name(yaml_file_name);
     yaml_path.to_str().unwrap().to_string()
 }
 
-pub fn compose_db_map(cl: &AppConfig) -> Result<HashMap<String, Db>> {
+fn compose_single_db(
+    yaml: &String,
+    conn_string: &String,
+    db_name: &String,
+    db_path: &String, // simple name if in-mem
+    is_new_db: bool,
+    is_mem: bool,
+) -> (Db, Connection) {
+    println!("- Database '{}'", db_name);
+
+    if is_mem {
+        println!("  - in-memory database");
+    } else {
+        println!("  - from file '{}'", db_path);
+        if is_new_db {
+            println!("    - file not present, it will be created");
+        }
+    }
+
+    let mut dbconf = if yaml == "" || !file_exists(yaml) {
+        println!("  - companion file not found: assuming defaults");
+        DbConfig::default()
+    } else {
+        println!("  - parsing companion file '{}'", yaml);
+        parse_dbconf(yaml).unwrap_or_else(|e| abort(format!("parsing YAML {}: {}", yaml, e)))
+    };
+
+    if let Some(b) = &mut dbconf.backup {
+        assert(
+            b.num_files > 0,
+            format!("backup: num_files must be 1 or more"),
+        );
+        let bd = resolve_tilde(&b.backup_dir);
+        assert(
+            is_dir(&bd),
+            format!("backup directory does not exist: {}", bd),
+        );
+        b.backup_dir = bd;
+    }
+
+    if let Some(a) = &dbconf.auth {
+        assert(
+            a.by_credentials.is_none() != a.by_query.is_none(),
+            format!("auth: exactly one among by_credentials and by_query must be specified"),
+        );
+        if let Some(vc) = &a.by_credentials {
+            for c in vc {
+                assert(
+                    c.password.is_none() && c.hashed_password.is_none(),
+                    format!(
+                        "auth: user '{}': password or hashed_password must be specified",
+                        &c.user
+                    ),
+                );
+            }
+        }
+    }
+
+    let stored_statements: HashMap<String, String> = dbconf
+        .to_owned()
+        .stored_statements
+        .map(|ss| {
+            ss.iter()
+                .map(|el| (el.id.to_owned(), el.sql.to_owned()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if stored_statements.len() > 0 {
+        println!(
+            "  - {} stored statements configured",
+            stored_statements.len()
+        );
+        if dbconf.use_only_stored_statements {
+            println!("    - allowing only stored statements for requests")
+        }
+    }
+
+    let macros: HashMap<String, Macro> = resolve_macros(&mut dbconf, &stored_statements);
+
+    if macros.len() > 0 {
+        println!("  - {} macros configured", macros.len());
+    }
+
+    let mut conn = if_abort_rusqlite(Connection::open(conn_string));
+
+    let res = bootstrap_db_macros(is_new_db, &dbconf, db_name, &mut conn);
+    if res.is_err() {
+        let _ = conn.close();
+        if !is_mem && is_new_db {
+            let _ = remove_file(Path::new(db_path));
+        }
+        abort(res.err().unwrap().to_string());
+    }
+
+    for macr in macros.values() {
+        periodic_macro(macr.to_owned(), db_name.to_owned());
+    }
+
+    bootstrap_backup(is_new_db, &dbconf, db_name, db_path, &mut conn);
+
+    periodic_backup(
+        dbconf.to_owned(),
+        db_name.to_owned(),
+        conn_string.to_owned(),
+    );
+
+    if dbconf.read_only {
+        if_abort_rusqlite(conn.execute("PRAGMA query_only = true", []));
+        println!("  - read-only");
+    }
+
+    if !dbconf.disable_wal_mode {
+        if_abort_rusqlite(conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(())));
+        println!("  - WAL mode enabled");
+    } else {
+        println!("  - WAL mode disabled");
+    }
+
+    let db_conf = Db {
+        is_mem,
+        path: conn_string.to_owned(),
+        conf: dbconf,
+        stored_statements,
+        macros,
+    };
+    (db_conf, conn)
+}
+
+fn check_db_name(db_name: &String, db_map: &HashMap<String, Db>) {
+    assert(
+        !db_map.contains_key(db_name),
+        format!("database '{}' already defined", db_name),
+    );
+}
+
+pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
     let mut db_map = HashMap::new();
     let mut mutexes = HashMap::new();
-    for db in &cl.db {
-        let db = resolve_tilde(db);
+    for db_path in &cl.db {
+        let db_path = resolve_tilde(db_path);
+        let db_name = to_base_name(&db_path);
+        check_db_name(&db_name, &db_map);
 
-        let yaml = to_yaml_path(&db);
-        let dbconf = if !file_exists(&yaml) {
-            println!("YAML file for db ({}) not found: assuming defaults", &yaml);
-            DbConfig::default()
-        } else {
-            match parse_dbconf(&yaml) {
-                Ok(dbc) => dbc,
-                Err(e) => abort(format!("Parsing YAML file {}: {}", &yaml, e.to_string())),
-            }
-        };
+        let yaml = to_yaml_path(&db_path);
+        let is_new_db = !file_exists(&db_path);
 
-        let is_new_db = !file_exists(&db);
+        let (db_cfg, conn) =
+            compose_single_db(&yaml, &db_path, &db_name, &db_path, is_new_db, false);
 
-        let stored_statements = parse_stored_statements(&dbconf);
-
-        let macros_def = parse_macros(&dbconf, &stored_statements)?;
-
-        let mut conn = Connection::open(&db)?;
-
-        let res = exec_init_startup_macros(
-            is_new_db,
-            dbconf.init_macros.clone(),
-            dbconf.startup_macros.clone(),
-            &macros_def,
-            &mut conn,
-        );
-        if res.is_err() {
-            let _ = conn.close();
-            if is_new_db {
-                let _ = remove_file(Path::new(&db));
-            }
-            return Result::Err(res.err().unwrap());
-        }
-
-        match &dbconf.backup {
-            Some(bkp) => {
-                if bkp.at_startup {
-                    let res = do_backup(&bkp, &db, &conn);
-                    if !res.success {
-                        eprintln!("Cannot perform backup: {}", res.message.unwrap());
-                    }
-                }
-            }
-            None => (),
-        }
-
-        if dbconf.read_only {
-            conn.execute("PRAGMA query_only = true", [])?;
-        }
-
-        if !dbconf.disable_wal_mode {
-            conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
-        }
-
-        let db_cfg = Db {
-            path: db.clone(),
-            conf: dbconf,
-            stored_statements,
-            macros: macros_def,
-        };
-
-        let db_name = to_base_name(&db);
-        db_map.insert(db_name.clone(), db_cfg);
-        mutexes.insert(db_name.clone(), Mutex::new(conn));
+        db_map.insert(db_name.to_owned(), db_cfg);
+        mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
     for db in &cl.mem_db {
-        let (db_name, yaml) = split_on_first_column(db);
+        let (db_name, yaml) = split_on_first_colon(db);
+        check_db_name(&db_name, &db_map);
+
         let yaml = resolve_tilde(&yaml);
+        let conn_string = format!("file:{}?mode=memory", db_name);
 
-        let dbconf = if yaml == "" || !file_exists(&yaml) {
-            println!("YAML file for mem db not specified or not found: assuming defaults",);
-            DbConfig::default()
-        } else {
-            match parse_dbconf(&yaml) {
-                Ok(dbc) => dbc,
-                Err(e) => abort(format!("Parsing YAML file {}: {}", &yaml, e.to_string())),
-            }
-        };
+        let (db_cfg, conn) = compose_single_db(&yaml, &conn_string, &db_name, &db_name, true, true);
 
-        let stored_statements = parse_stored_statements(&dbconf);
-
-        let macros_def = parse_macros(&dbconf, &stored_statements)?;
-
-        let mut conn = Connection::open(format! {"file:{}?mode=memory", db_name})?;
-
-        let res = exec_init_startup_macros(
-            true, // in-mem db is always new
-            dbconf.init_macros.clone(),
-            dbconf.startup_macros.clone(),
-            &macros_def,
-            &mut conn,
-        );
-        if res.is_err() {
-            let _ = conn.close();
-            return Result::Err(res.err().unwrap());
-        }
-
-        match &dbconf.backup {
-            Some(bkp) => {
-                if bkp.at_startup {
-                    let res = do_backup(&bkp, &format!("{}.db", db_name), &conn);
-                    if !res.success {
-                        eprintln!("Cannot perform backup: {}", res.message.unwrap());
-                    }
-                }
-            }
-            None => (),
-        }
-
-        if dbconf.read_only {
-            conn.execute("PRAGMA query_only = true", [])?;
-        }
-
-        if !dbconf.disable_wal_mode {
-            conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
-        }
-
-        let db_cfg = Db {
-            path: db.clone(),
-            conf: dbconf,
-            stored_statements,
-            macros: macros_def,
-        };
-
-        let db_name = to_base_name(&db);
-        db_map.insert(db_name.clone(), db_cfg);
-        mutexes.insert(db_name.clone(), Mutex::new(conn));
+        db_map.insert(db_name.to_owned(), db_cfg);
+        mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
-    match MUTEXES.set(mutexes) {
-        Ok(_) => Ok(db_map),
-        Err(_) => Result::Err(eyre!("Error setting mutexes".to_string())),
-    }
+    let _ = MUTEXES.set(mutexes);
+    db_map
 }

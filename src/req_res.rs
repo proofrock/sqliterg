@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::commons::default_as_false;
 use actix_web::{
     body::BoxBody,
     http::{header::ContentType, StatusCode},
@@ -20,8 +21,6 @@ use actix_web::{
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value as JsonValue;
-
-use crate::commons::default_as_false;
 
 #[derive(Debug, Deserialize)]
 pub struct ReqCredentials {
@@ -117,7 +116,7 @@ impl Response {
             results: None,
             req_idx: Some(req_idx),
             message: Some(msg),
-            status_code: status_code,
+            status_code,
             success: false,
         }
     }

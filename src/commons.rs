@@ -19,6 +19,7 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     fs::{read_dir, remove_file},
+    ops::Deref,
     path::Path,
     process::exit,
 };
@@ -30,8 +31,10 @@ pub fn abort(str: String) -> ! {
     exit(1);
 }
 
-pub fn prepend_column(str: &String) -> String {
-    let mut ret = ":".to_string();
+const COLON: &str = ":";
+
+pub fn prepend_colon(str: &String) -> String {
+    let mut ret = COLON.to_string();
     ret.push_str(str);
     return ret;
 }
@@ -45,9 +48,18 @@ pub fn default_as_true() -> bool {
     true
 }
 
+pub fn default_as_zero() -> i32 {
+    0
+}
+
 pub fn file_exists(path: &String) -> bool {
     let path = Path::new(path);
     Path::new(path).exists()
+}
+
+pub fn is_dir(path: &String) -> bool {
+    let path = Path::new(path);
+    Path::new(path).is_dir()
 }
 
 pub fn sha256(input: &String) -> String {
@@ -124,32 +136,41 @@ pub fn check_stored_stmt<'a>(
 }
 
 pub fn resolve_tilde(p: &String) -> String {
-    shellexpand::tilde(p).to_string()
+    shellexpand::tilde(p).into_owned()
 }
 
-pub fn resolve_tilde_opt(p: &Option<String>) -> Option<String> {
-    match p {
-        Some(p) => Some(resolve_tilde(p)),
-        None => None,
-    }
-}
-
-pub fn split_on_first_column(input: &String) -> (String, String) {
+pub fn split_on_first_colon(input: &String) -> (String, String) {
     let mut parts = input.splitn(2, ':');
-    let first_part = parts.next().unwrap_or("").to_string();
-    let second_part = parts.next().unwrap_or("").to_string();
+    let first_part = parts.next().unwrap_or_default().to_string();
+    let second_part = parts.next().unwrap_or_default().to_string();
 
     (first_part, second_part)
 }
 
+pub fn if_abort_eyre<T>(result: eyre::Result<T>) -> T {
+    result.unwrap_or_else(|e| abort(e.to_string()))
+}
+
+pub fn if_abort_rusqlite<T>(result: rusqlite::Result<T, rusqlite::Error>) -> T {
+    result.unwrap_or_else(|e| abort(e.to_string()))
+}
+
+pub fn assert(condition: bool, msg: String) {
+    if !condition {
+        abort(msg);
+    }
+}
+
 // Utils to convert serde structs to slices accepted by rusqlite as named params
+// adapted from serde-rusqlite, https://github.com/twistedfall/serde_rusqlite/blob/master/LICENSE
+
 pub struct NamedParamsContainer(Vec<(String, Box<dyn rusqlite::types::ToSql>)>);
 
 impl NamedParamsContainer {
     pub fn slice(&self) -> Vec<(&str, &dyn rusqlite::types::ToSql)> {
         self.0
             .iter()
-            .map(|el| (el.0.as_str(), el.1.borrow()))
+            .map(|el| (el.0.deref(), el.1.borrow()))
             .collect()
     }
 }
