@@ -30,7 +30,6 @@ use actix_web::{
     web::{post, scope, Data},
     App, HttpServer, Scope,
 };
-use clap::Parser;
 use rusqlite::Connection;
 
 pub mod auth;
@@ -43,7 +42,7 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{commandline::AppConfig, main_config::compose_db_map};
+use crate::{commandline::parse_cli, main_config::compose_db_map};
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
@@ -64,7 +63,7 @@ async fn main() -> std::io::Result<()> {
         get_sqlite_version()
     );
 
-    let cli = AppConfig::parse();
+    let cli = parse_cli();
 
     // side effect of compose_db_map: populate MUTEXES
     // aborts on error

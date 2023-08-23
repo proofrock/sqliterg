@@ -57,16 +57,13 @@ pub fn parse_cli() -> AppConfig {
         "no database and no dir to serve specified".to_string(),
     );
 
-    match ret.serve_dir {
-        Some(sd) => {
-            let sd = resolve_tilde(&sd);
-            ret.serve_dir = Some(sd.to_owned());
-            assert(
-                is_dir(&sd),
-                format!("directory to serve does not exist: {}", sd),
-            );
-        }
-        None => (),
+    if let Some(sd) = ret.serve_dir {
+        let sd = resolve_tilde(&sd);
+        assert(
+            is_dir(&sd),
+            format!("directory to serve does not exist: {}", sd),
+        );
+        ret.serve_dir = Some(sd.to_owned());
     }
 
     ret
