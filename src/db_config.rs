@@ -90,9 +90,7 @@ pub struct Backup {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DbConfig {
     pub auth: Option<Auth>,
-    #[serde(rename = "disableWALMode")]
-    #[serde(default = "default_as_false")]
-    pub disable_wal_mode: bool,
+    pub journal_mode: Option<String>,
     #[serde(rename = "readOnly")]
     #[serde(default = "default_as_false")]
     pub read_only: bool,
@@ -114,7 +112,7 @@ impl Default for DbConfig {
     fn default() -> DbConfig {
         DbConfig {
             auth: None,
-            disable_wal_mode: false,
+            journal_mode: None,
             read_only: false,
             persistent_connection: true,
             cors_origin: None,

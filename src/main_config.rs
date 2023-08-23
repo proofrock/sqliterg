@@ -163,12 +163,9 @@ fn compose_single_db(
         println!("  - read-only");
     }
 
-    if !dbconf.disable_wal_mode {
-        if_abort_rusqlite(conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(())));
-        println!("  - WAL mode enabled");
-    } else {
-        println!("  - WAL mode disabled");
-    }
+    let jm = dbconf.journal_mode.to_owned().unwrap_or("WAL".to_string());
+    if_abort_rusqlite(conn.query_row(&format!("PRAGMA journal_mode = {}", jm), [], |_| Ok(())));
+    println!("  - journal mode: {}", jm);
 
     let db_conf = Db {
         is_mem,
