@@ -1,17 +1,21 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
+
 URL="http://localhost:12321/test/exec"
 REQUESTS=20000
 
-rm -rf test/*.db*
+mkdir environment/backup
+rm -f environment/*.db*
 
 pkill -x ws4sqlite
 pkill -x sqliterg
 
+cd ..
 cargo build --release
-target/release/sqliterg --db test/test.db &
-
 cd profiler
+../target/release/sqliterg --db environment/test.db &
+
 javac Profile.java
 
 sleep 1
@@ -20,7 +24,6 @@ echo -n "Elapsed seconds in sqliterg: "
 java -cp ./ Profile $REQUESTS $URL $REQ
 
 rm Profile.class
-cd ..
 
 pkill -x sqliterg
-rm -rf test/*.db*
+rm -f environment/*.db*
