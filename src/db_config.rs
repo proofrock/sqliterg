@@ -75,7 +75,7 @@ pub struct ExecutionMode {
 pub struct Macro {
     pub id: String,
     pub statements: Vec<String>,
-    pub execution: Option<ExecutionMode>,
+    pub execution: ExecutionMode,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -90,6 +90,7 @@ pub struct Backup {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DbConfig {
     pub auth: Option<Auth>,
+    #[serde(rename = "journalMode")]
     pub journal_mode: Option<String>,
     #[serde(rename = "readOnly")]
     #[serde(default = "default_as_false")]

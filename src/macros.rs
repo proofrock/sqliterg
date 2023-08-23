@@ -111,27 +111,22 @@ pub fn bootstrap_db_macros(
             };
 
             for macr in macros {
-                match &macr.execution {
-                    Some(mex) => {
-                        if mex.on_startup || (is_new_db && mex.on_create) {
-                            for (i, statement) in macr.statements.iter().enumerate() {
-                                match tx.execute(statement, []) {
-                                    Ok(_) => (),
-                                    Err(e) => {
-                                        let _ = tx.rollback();
-                                        return Result::Err(eyre!(
-                                            "In macro '{}' of db '{}', index {}: {}",
-                                            macr.id,
-                                            db_name,
-                                            i,
-                                            e
-                                        ));
-                                    }
-                                }
+                if macr.execution.on_startup || (is_new_db && macr.execution.on_create) {
+                    for (i, statement) in macr.statements.iter().enumerate() {
+                        match tx.execute(statement, []) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                let _ = tx.rollback();
+                                return Result::Err(eyre!(
+                                    "In macro '{}' of db '{}', index {}: {}",
+                                    macr.id,
+                                    db_name,
+                                    i,
+                                    e
+                                ));
                             }
                         }
                     }
-                    None => (),
                 }
             }
 
@@ -161,43 +156,32 @@ pub async fn handler(
     let db_conf = db_map.get(db_name.deref());
     match db_conf {
         Some(db_conf) => match db_conf.macros.get(&macro_name.to_string()) {
-            Some(macr) => match &macr.execution {
-                Some(mex) => match &mex.web_service {
-                    Some(mex_ws) => {
-                        if !process_creds(
-                            &token.token,
-                            &mex_ws.auth_token,
-                            &mex_ws.hashed_auth_token,
-                        ) {
-                            return Response::new_err(
-                                401,
-                                -1,
-                                format!(
-                                    "In database '{}', macro '{}': token mismatch",
-                                    db_name, macro_name
-                                ),
-                            );
-                        }
-
-                        let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
-                        let mut db_lock_guard = db_lock.lock().unwrap();
-                        let conn = db_lock_guard.deref_mut();
-
-                        exec_macro_single(&macr, conn)
+            Some(macr) => match &macr.execution.web_service {
+                Some(mex_ws) => {
+                    if !process_creds(&token.token, &mex_ws.auth_token, &mex_ws.hashed_auth_token) {
+                        return Response::new_err(
+                            401,
+                            -1,
+                            format!(
+                                "In database '{}', macro '{}': token mismatch",
+                                db_name, macro_name
+                            ),
+                        );
                     }
-                    None => Response::new_err(
-                        404,
-                        -1,
-                        format!(
-                            "In database '{}', macro '{}' doesn't have a backup.execution node",
-                            db_name, macro_name
-                        ),
-                    ),
-                },
+
+                    let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
+                    let mut db_lock_guard = db_lock.lock().unwrap();
+                    let conn = db_lock_guard.deref_mut();
+
+                    exec_macro_single(&macr, conn)
+                }
                 None => Response::new_err(
                     404,
                     -1,
-                    format!("In database '{}', unknown macro '{}'", db_name, macro_name),
+                    format!(
+                        "In database '{}', macro '{}' doesn't have a backup.execution node",
+                        db_name, macro_name
+                    ),
                 ),
             },
             None => {
@@ -216,62 +200,57 @@ pub async fn handler(
 }
 
 pub fn periodic_macro(macr: Macro, db_name: String) -> () {
-    match macr.execution {
-        Some(mex) => {
-            if mex.period > 0 {
-                spawn(async move {
-                    let p = Duration::from_secs(mex.period as u64 * 60);
-                    let first_start = Instant::now().checked_add(p).unwrap();
-                    let mut interval = interval_at(first_start, p);
+    if macr.execution.period > 0 {
+        spawn(async move {
+            let p = Duration::from_secs(macr.execution.period as u64 * 60);
+            let first_start = Instant::now().checked_add(p).unwrap();
+            let mut interval = interval_at(first_start, p);
 
-                    interval.tick().await; // skip first execution
+            interval.tick().await; // skip first execution
 
-                    loop {
-                        interval.tick().await;
+            loop {
+                interval.tick().await;
 
-                        let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
-                        let mut db_lock_guard = db_lock.lock().unwrap();
-                        let conn = db_lock_guard.deref_mut();
+                let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
+                let mut db_lock_guard = db_lock.lock().unwrap();
+                let conn = db_lock_guard.deref_mut();
 
-                        let tx = match conn.transaction() {
-                            Ok(tx) => tx,
-                            Err(_) => {
-                                eprintln!(
-                                    "Transaction open failed for db '{}', macro '{}'",
-                                    db_name, macr.id,
-                                );
-                                return;
-                            }
-                        };
+                let tx = match conn.transaction() {
+                    Ok(tx) => tx,
+                    Err(_) => {
+                        eprintln!(
+                            "Transaction open failed for db '{}', macro '{}'",
+                            db_name, macr.id,
+                        );
+                        return;
+                    }
+                };
 
-                        for (i, statement) in macr.statements.iter().enumerate() {
-                            match tx.execute(statement, []) {
-                                Ok(_) => (),
-                                Err(e) => {
-                                    let _ = tx.rollback();
-                                    eprintln!(
-                                        "In macro '{}' of db '{}', index {}: {}",
-                                        macr.id, db_name, i, e
-                                    );
-                                    return;
-                                }
-                            }
-                        }
-
-                        match tx.commit() {
-                            Ok(_) => println!("Macro '{}' executed for db '{}'", macr.id, db_name),
-                            Err(e) => {
-                                eprintln!(
-                                    "Commit failed for startup macros in db '{}': {}",
-                                    db_name,
-                                    e.to_string()
-                                );
-                            }
+                for (i, statement) in macr.statements.iter().enumerate() {
+                    match tx.execute(statement, []) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            let _ = tx.rollback();
+                            eprintln!(
+                                "In macro '{}' of db '{}', index {}: {}",
+                                macr.id, db_name, i, e
+                            );
+                            return;
                         }
                     }
-                });
+                }
+
+                match tx.commit() {
+                    Ok(_) => println!("Macro '{}' executed for db '{}'", macr.id, db_name),
+                    Err(e) => {
+                        eprintln!(
+                            "Commit failed for startup macros in db '{}': {}",
+                            db_name,
+                            e.to_string()
+                        );
+                    }
+                }
             }
-        }
-        None => (),
+        });
     }
 }
