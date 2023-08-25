@@ -107,6 +107,7 @@ fn compose_single_db(
                 );
             }
         }
+        println!("  - authentication set up");
     }
 
     let stored_statements: HashMap<String, String> = dbconf
