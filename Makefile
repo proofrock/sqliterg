@@ -3,3 +3,6 @@
 profile:
 	bash profiler/stress_sqliterg.sh
 	bash profiler/stress_ws4sqlite.sh
+
+test:
+	bash tests/test.sh
