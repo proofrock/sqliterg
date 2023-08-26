@@ -5,4 +5,5 @@ profile:
 	bash profiler/stress_ws4sqlite.sh
 
 test:
-	bash tests/test.sh
+	cd testing; npm install
+	cd testing; npm test
