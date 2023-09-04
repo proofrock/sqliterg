@@ -32,6 +32,9 @@ pub struct ReqCredentials {
 #[serde(untagged)]
 
 pub enum ReqTransactionItem {
+    // TODO in the end this is not a good approach, because the framework makes choices
+    //   about priority that are a bit arbitrary. For example, if both a query and a
+    //   statement are available, it chooses Query, while probably an error should be returned.
     Query {
         #[serde(rename = "noFail")]
         #[serde(default = "default_as_false")]

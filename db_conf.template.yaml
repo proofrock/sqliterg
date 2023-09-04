@@ -67,15 +67,15 @@ backup:
   numFiles: 3
   # Control of execution. Mandatory. All the contents have defaults meaning "disabled".
   execution:
-      # Executes if the database is created (file wasn't present or in-memory)
-      onCreate: false
-      # Executes at each startup. Implies onCreate; if both are specified the macro will be executed once.
-      onStartup: false
-      # Executes every /n/ minutes. First execution is /n/ minutes after startup.
-      period: 1   # in minutes, <= 0: never
-      # Exposes an endpoint to execute the backup. A token-based for of authentication is mandatory.
-      # Endpoint is http://<host>:<port>/<db_name>/backup
-      webService:
-        # Either a plaintext "authToken" or a SHA-256 hashed "hashedAuthToken" must be supplied.
-        authToken: ciao
-        hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
+    # Executes if the database is created (file wasn't present or in-memory)
+    onCreate: false
+    # Executes at each startup. Implies onCreate; if both are specified the macro will be executed once.
+    onStartup: false
+    # Executes every /n/ minutes. First execution is /n/ minutes after startup.
+    period: 1   # in minutes, <= 0: never
+    # Exposes an endpoint to execute the backup. A token-based for of authentication is mandatory.
+    # Endpoint is http://<host>:<port>/<db_name>/backup
+    webService:
+      # Either a plaintext "authToken" or a SHA-256 hashed "hashedAuthToken" must be supplied.
+      authToken: ciao
+      hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2

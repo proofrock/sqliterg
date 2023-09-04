@@ -17,122 +17,91 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
-	"fmt"
-	"sync"
 )
 
-// This is the ws4sqlite error type
-
-type wsError struct {
-	RequestIdx int    `json:"reqIdx"`
-	Msg        string `json:"error"`
-	Code       int    `json:"-"`
-}
-
-func (m wsError) Error() string {
-	return m.Msg
-}
-
-func newWSError(reqIdx int, code int, msg string, elements ...interface{}) wsError {
-	return wsError{reqIdx, fmt.Sprintf(msg, elements...), code}
-}
-
 // These are for parsing the config file (from YAML)
-// and storing additional context
-
-type scheduledTask struct {
-	Schedule       *string  `yaml:"schedule"`
-	AtStartup      *bool    `yaml:"atStartup"`
-	DoVacuum       bool     `yaml:"doVacuum"`
-	DoBackup       bool     `yaml:"doBackup"`
-	BackupTemplate string   `yaml:"backupTemplate"`
-	NumFiles       int      `yaml:"numFiles"`
-	Statements     []string `yaml:"statements"`
-	Db             *db
-}
 
 type credentialsCfg struct {
-	User           string `yaml:"user"`
-	Password       string `yaml:"password"`
-	HashedPassword string `yaml:"hashedPassword"`
+	User           string `yaml:"user,omitempty"`
+	Password       string `yaml:"password,omitempty"`
+	HashedPassword string `yaml:"hashedPassword,omitempty"`
 }
 
 type authr struct {
-	Mode            string           `yaml:"mode"` // 'INLINE' or 'HTTP'
-	CustomErrorCode *int             `yaml:"customErrorCode"`
-	ByQuery         string           `yaml:"byQuery"`
-	ByCredentials   []credentialsCfg `yaml:"byCredentials"`
-	HashedCreds     map[string][]byte
+	Mode            string           `yaml:"mode,omitempty"` // 'INLINE' or 'HTTP_BASIC'
+	CustomErrorCode *int             `yaml:"customErrorCode,omitempty"`
+	ByQuery         string           `yaml:"byQuery,omitempty"`
+	ByCredentials   []credentialsCfg `yaml:"byCredentials,omitempty"`
 }
 
 type storedStatement struct {
-	Id  string `yaml:"id"`
-	Sql string `yaml:"sql"`
+	Id  string `yaml:"id,omitempty"`
+	Sql string `yaml:"sql,omitempty"`
+}
+
+type webService struct {
+	AuthToken       *string `yaml:"authToken,omitempty"`
+	HashedAuthToken *string `yaml:"hashedAuthToken,omitempty"`
+}
+
+type execution struct {
+	OnCreate   *bool       `yaml:"onCreate,omitempty"`
+	OnStartup  *bool       `yaml:"onStartup,omitempty"`
+	Period     *uint       `yaml:"period,omitempty"`
+	WebService *webService `yaml:"webService,omitempty"`
+}
+
+type macro struct {
+	Id         string    `yaml:"id,omitempty"`
+	Statements []string  `yaml:"statements,omitempty"`
+	Execution  execution `yaml:"execution,omitempty"`
+}
+
+type backup struct {
+	BackupDir string    `yaml:"backupDir,omitempty"`
+	NumFiles  uint      `yaml:"numFiles,omitempty"`
+	Execution execution `yaml:"execution,omitempty"`
 }
 
 type db struct {
-	Id                      string
-	Path                    string
-	CompanionFilePath       string
-	Auth                    *authr            `yaml:"auth"`
-	ReadOnly                bool              `yaml:"readOnly"`
-	CORSOrigin              string            `yaml:"corsOrigin"`
-	UseOnlyStoredStatements bool              `yaml:"useOnlyStoredStatements"`
-	DisableWALMode          bool              `yaml:"disableWALMode"`
-	Maintenance             *scheduledTask    `yaml:"maintenance"`
-	ScheduledTasks          []scheduledTask   `yaml:"scheduledTasks"`
-	StoredStatement         []storedStatement `yaml:"storedStatements"`
-	InitStatements          []string          `yaml:"initStatements"`
-	Db                      *sql.DB
-	DbConn                  *sql.Conn
-	StoredStatsMap          map[string]string
-	Mutex                   *sync.Mutex
-}
-
-type config struct {
-	Bindhost  string
-	Port      int
-	Databases []db
-	ServeDir  *string
+	Auth                    *authr            `yaml:"auth,omitempty"`
+	ReadOnly                bool              `yaml:"readOnly,omitempty"`
+	CORSOrigin              string            `yaml:"corsOrigin,omitempty"`
+	UseOnlyStoredStatements bool              `yaml:"useOnlyStoredStatements,omitempty"`
+	JournalMode             string            `yaml:"journalMode,omitempty"`
+	StoredStatement         []storedStatement `yaml:"storedStatements,omitempty"`
+	Macros                  []macro           `yaml:"macro,omitempty"`
+	Backup                  backup            `yaml:"backup,omitempty"`
 }
 
 // These are for parsing the request (from JSON)
 
 type credentials struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
-}
-
-type requestItemCrypto struct {
-	Password         string   `json:"password"`
-	Fields           []string `json:"fields"`
-	CompressionLevel int      `json:"compressionLevel"`
+	User     string `json:"user,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 type requestItem struct {
-	Query       string                       `json:"query"`
-	Statement   string                       `json:"statement"`
-	NoFail      bool                         `json:"noFail"`
-	Values      map[string]json.RawMessage   `json:"values"`
-	ValuesBatch []map[string]json.RawMessage `json:"valuesBatch"`
-	Encoder     *requestItemCrypto           `json:"encoder"`
-	Decoder     *requestItemCrypto           `json:"decoder"`
+	Query       string                       `json:"query,omitempty"`
+	Statement   string                       `json:"statement,omitempty"`
+	NoFail      bool                         `json:"noFail,omitempty"`
+	Values      map[string]json.RawMessage   `json:"values,omitempty"`
+	ValuesBatch []map[string]json.RawMessage `json:"valuesBatch,omitempty"`
 }
 
 type request struct {
-	Credentials *credentials  `json:"credentials"`
-	Transaction []requestItem `json:"transaction"`
+	Credentials *credentials  `json:"credentials,omitempty"`
+	Transaction []requestItem `json:"transaction,omitempty"`
 }
 
 // These are for generating the response
 
 type responseItem struct {
 	Success          bool                     `json:"success"`
-	RowsUpdated      *int64                   `json:"rowsUpdated,omitempty"`
-	RowsUpdatedBatch []int64                  `json:"rowsUpdatedBatch,omitempty"`
-	ResultSet        []map[string]interface{} `json:"resultSet,omitnil"` // omitnil is used by jettison
+	RowsUpdated      *int                     `json:"rowsUpdated,omitempty"`
+	RowsUpdatedBatch []int                    `json:"rowsUpdatedBatch,omitempty"`
+	ResultSet        []map[string]interface{} `json:"resultSet"`
 	Error            string                   `json:"error,omitempty"`
 }
 
