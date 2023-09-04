@@ -207,7 +207,8 @@ fn process(
     Ok(match failed {
         Some(f) => {
             tx.rollback()?;
-            Response::new_err(500, f.0 as isize, f.1)
+            // FIXME should be 500 for SQL errors, though...
+            Response::new_err(400, f.0 as isize, f.1)
         }
         None => {
             tx.commit()?;
