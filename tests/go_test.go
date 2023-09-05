@@ -621,3 +621,26 @@ func TestStoredQueryMem(t *testing.T) {
 
 	require.True(t, res.Results[0].Success)
 }
+
+var TRUE bool = true
+
+func TestInitMacro(t *testing.T) {
+	cfg := db{
+		Macros: []macro{{Id: "M1", Statements: []string{"CREATE TABLE T1 (ID INT PRIMARY KEY, VAL TEXT NOT NULL)"}, Execution: execution{OnCreate: &TRUE}}}}
+
+	defer setupTest(t, &cfg, "--mem-db", "test:env/test.yaml")(true)
+
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO T1 VALUES(1, \"ONE\")",
+			},
+		},
+	}
+
+	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	require.True(t, res.Results[0].Success)
+}

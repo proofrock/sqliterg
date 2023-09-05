@@ -71,7 +71,7 @@ type db struct {
 	UseOnlyStoredStatements bool              `yaml:"useOnlyStoredStatements,omitempty"`
 	JournalMode             string            `yaml:"journalMode,omitempty"`
 	StoredStatement         []storedStatement `yaml:"storedStatements,omitempty"`
-	Macros                  []macro           `yaml:"macro,omitempty"`
+	Macros                  []macro           `yaml:"macros,omitempty"`
 	Backup                  backup            `yaml:"backup,omitempty"`
 }
 
