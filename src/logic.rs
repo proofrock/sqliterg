@@ -50,12 +50,13 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
     NamedParamsContainer::from(named_params)
 }
 
+#[allow(clippy::type_complexity)]
 fn do_query(
     tx: &Transaction,
-    sql: &String,
+    sql: &str,
     values: &Option<JsonValue>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let mut stmt = tx.prepare(&sql)?;
+    let mut stmt = tx.prepare(sql)?;
     let column_names: Vec<String> = stmt
         .column_names()
         .iter()
@@ -80,9 +81,10 @@ fn do_query(
     Ok((Some(response), None, None))
 }
 
+#[allow(clippy::type_complexity)]
 fn do_statement(
     tx: &Transaction,
-    sql: &String,
+    sql: &str,
     values: &Option<JsonValue>,
     values_batch: &Option<Vec<JsonValue>>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
@@ -107,7 +109,7 @@ fn do_statement(
             (None, Some(changed_rows), None)
         }
         _ => {
-            let mut stmt = tx.prepare(&sql)?;
+            let mut stmt = tx.prepare(sql)?;
             let mut ret = vec![];
             for p in params {
                 let map = p.as_object().unwrap();
@@ -126,19 +128,19 @@ fn process(
     dbconf: &DbConfig,
     auth_header: &Option<Authorization<Basic>>,
 ) -> Result<Response> {
-    if dbconf.auth.is_some() {
-        if !process_auth(
+    if dbconf.auth.is_some()
+        && !process_auth(
             dbconf.auth.as_ref().unwrap(),
             conn,
             &http_req.credentials,
             auth_header,
-        ) {
-            return Ok(Response::new_err(
-                401,
-                -1,
-                "Authorization failed".to_string(),
-            ));
-        }
+        )
+    {
+        return Ok(Response::new_err(
+            401,
+            -1,
+            "Authorization failed".to_string(),
+        ));
     }
 
     let tx = conn.transaction()?;
@@ -158,7 +160,7 @@ fn process(
                 let sql =
                     check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
                 match sql {
-                    Ok(sql) => do_query(&tx, &sql, values),
+                    Ok(sql) => do_query(&tx, sql, values),
                     Err(e) => Result::Err(e),
                 }
             }
@@ -175,15 +177,17 @@ fn process(
                     dbconf.use_only_stored_statements,
                 );
                 match sql {
-                    Ok(sql) => do_statement(&tx, &sql, values, values_batch),
+                    Ok(sql) => do_statement(&tx, sql, values, values_batch),
                     Err(e) => Result::Err(e),
                 }
             }
         };
 
-        if !ret.is_ok() && !tmp_no_fail {
-            failed = Some((idx, ret.unwrap_err().to_string()));
-            break;
+        if !tmp_no_fail {
+            if let Err(err) = ret {
+                failed = Some((idx, err.to_string()));
+                break;
+            }
         }
 
         results.push(match ret {
@@ -223,7 +227,7 @@ pub async fn handler(
     db_conf: web::Data<Db>,
     db_name: web::Data<String>,
 ) -> impl Responder {
-    let auth = if (&db_conf).conf.auth.is_some()
+    let auth = if (db_conf).conf.auth.is_some()
         && matches!(
             db_conf.conf.auth.as_ref().unwrap().mode,
             AuthMode::HttpBasic
@@ -240,7 +244,5 @@ pub async fn handler(
     let mut db_lock_guard = db_lock.lock().unwrap();
     let conn = db_lock_guard.deref_mut();
 
-    let result = process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap();
-
-    result
+    process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap()
 }

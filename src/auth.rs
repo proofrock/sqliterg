@@ -30,8 +30,9 @@ pub fn process_creds(
     hashed_password: &Option<String>,
 ) -> bool {
     match (given_password, password, hashed_password) {
+        (_, None, None) => true,
         (Some(gp), Some(p), _) => gp == p,
-        (Some(gp), None, Some(hp)) => equal_case_insensitive(&hp, &sha256(&gp)),
+        (Some(gp), None, Some(hp)) => equal_case_insensitive(hp, &sha256(gp)),
         _ => false,
     }
 }
@@ -46,9 +47,9 @@ fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>)
     false
 }
 
-fn auth_by_query(user: String, password: String, query: &String, conn: &mut Connection) -> bool {
+fn auth_by_query(user: String, password: String, query: &str, conn: &mut Connection) -> bool {
     let res = conn.query_row(
-        &query,
+        query,
         named_params! {":user": user, ":password":password},
         |_| Ok(()),
     );

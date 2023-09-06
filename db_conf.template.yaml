@@ -9,17 +9,17 @@ auth:
   # Only one among "byQuery" and "byCredentials" must be specified.
   # This query validates credentials against a query in the database, it must have
   #   two parameters named ":user" and ":password" and if the credentials are valid must
-  #   return (at least) one row. 
+  #   return (at least) one row.
   byQuery: SELECT 1 FROM AUTH WHERE USER = :user AND PASS = :password
   # This is a list of valid credentials, "statically" specified. "user" is case-insensitive
-  #   while either a plaintext "password" or a SHA-256 hashed "hashedPassword" must be supplied. 
+  #   while either a plaintext "password" or a SHA-256 hashed "hashedPassword" must be supplied.
   byCredentials:
     - user: myUser1
       password: ciao
     - user: myUser2
       hashedPassword: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2 # "ciao"
 # Journal mode for the database. Optional, default is "WAL". Not validated to accommodate for
-#   future versions of SQLite.
+#   future versions of SQLite. From SQLite docs: DELETE | TRUNCATE | PERSIST | MEMORY | WAL | OFF
 journalMode: WAL
 # Database is read-only. This is set after startup macros or backup are performed, so they can
 #   still modify the database. It's implemented using the query_only PRAGMA.
@@ -51,7 +51,7 @@ macros:
       # Executes at each startup. Implies onCreate; if both are specified the macro will be executed once.
       onStartup: false
       # Executes every /n/ minutes. First execution is /n/ minutes after startup.
-      period: 1   # in minutes, <= 0: never
+      period: 1 # in minutes, <= 0: never
       # Exposes an endpoint to execute the macro. A token-based for of authentication is mandatory.
       # Endpoint is http://<host>:<port>/<db_name>/macro/<macro_id>
       webService:
@@ -72,7 +72,7 @@ backup:
     # Executes at each startup. Implies onCreate; if both are specified the macro will be executed once.
     onStartup: false
     # Executes every /n/ minutes. First execution is /n/ minutes after startup.
-    period: 1   # in minutes, <= 0: never
+    period: 1 # in minutes, <= 0: never
     # Exposes an endpoint to execute the backup. A token-based for of authentication is mandatory.
     # Endpoint is http://<host>:<port>/<db_name>/backup
     webService:

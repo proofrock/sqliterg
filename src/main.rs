@@ -90,7 +90,7 @@ async fn main() -> std::io::Result<()> {
                     if orig == "*" {
                         cors = cors.allow_any_origin();
                     } else {
-                        cors = cors.allowed_origin(&orig);
+                        cors = cors.allowed_origin(orig);
                     }
                     a = a.service(scop.wrap(cors))
                 }
@@ -101,7 +101,7 @@ async fn main() -> std::io::Result<()> {
         if let Some(dir) = dir {
             a = a.service(Files::new("/", dir));
         };
-        return a;
+        a
     };
 
     let bind_addr = format!("{}:{}", cli.bind_host, cli.port);
