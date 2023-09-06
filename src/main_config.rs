@@ -99,9 +99,9 @@ fn compose_single_db(
         if let Some(vc) = &a.by_credentials {
             for c in vc {
                 assert(
-                    c.password.is_none() && c.hashed_password.is_none(),
+                    c.password.is_some() || c.hashed_password.is_some(),
                     format!(
-                        "auth: user '{}': password or hashed_password must be specified",
+                        "auth: user '{}': password or hashedPassword must be specified",
                         &c.user
                     ),
                 );

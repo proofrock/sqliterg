@@ -5,13 +5,13 @@
 
 # To doc
 
-- a macro's statements are executed in a transaction
-- init macros and startup macros are executed in a general wrapper transaction, to be able to revert them
-- if an init macro fails, the db is deleted
+- A macro's statements are executed in a transaction
+- Init macros and startup macros are executed in a general wrapper transaction, to be able to revert them
+- If an init macro fails, the db is deleted
+- If both password and hashedPassword are specified, password "wins"
 - If there's a Values and a ValuesBatch, ValuesBatch "wins"/gives an error
 
 # Test
 
-- Auth
 - CORS
 - If there's a Values and a ValuesBatch, ValuesBatch "wins"/gives an error

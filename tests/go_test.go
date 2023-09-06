@@ -117,6 +117,27 @@ func call(t *testing.T, url string, req request) (int, string, response) {
 	return resp.StatusCode, ret, obj
 }
 
+func callWithAuth(t *testing.T, url string, req request, username string, password string) (int, string, response) {
+	reqbytes, err := json.Marshal(req)
+	require.NoError(t, err)
+	post, err := http.NewRequest("POST", url, bytes.NewBuffer(reqbytes))
+	require.NoError(t, err)
+	post.Header.Add("Content-Type", "application/json")
+	// Add these lines to set HTTP Basic Authentication
+	post.SetBasicAuth(username, password)
+
+	resp, err := http.DefaultClient.Do(post)
+	require.NoError(t, err)
+
+	bs, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	ret := string(bs)
+	var obj response
+	json.Unmarshal(bs, &obj)
+
+	return resp.StatusCode, ret, obj
+}
+
 func TestErrorNoArgs(t *testing.T) {
 	cmd := exec.Command(COMMAND, "--db", "env/test.db", "--mem-db", "test")
 	defer os.Remove("env/test.db")
@@ -1623,4 +1644,513 @@ func TestJournalMode(t *testing.T) {
 	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
+}
+
+// test of auth ok/inline/plaintext/byQuery was already made in TestProfilerPayloadOnMem*
+
+func TestAuthKOInlinePlaintextByQuery(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode:    "INLINE",
+			ByQuery: "SELECT 1 FROM AUTH WHERE USER = :user AND PASS = :password",
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+					"CREATE TABLE IF NOT EXISTS AUTH (USER TEXT, PASS TEXT)",
+					"DELETE FROM AUTH",
+					"INSERT INTO AUTH VALUES ('myUser', 'ciao')",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthOkInlinePlaintextByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:     "myUser",
+					Password: "ciao",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "ciao",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthKOInlinePlaintextByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:     "myUser",
+					Password: "ciao",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthOkInlineHashByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:           "myUser",
+					HashedPassword: "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "ciao",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthKOInlineHashByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:           "myUser",
+					HashedPassword: "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthOkHttpPlaintextByQuery(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode:    "HTTP_BASIC",
+			ByQuery: "SELECT 1 FROM AUTH WHERE USER = :user AND PASS = :password",
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+					"CREATE TABLE IF NOT EXISTS AUTH (USER TEXT, PASS TEXT)",
+					"DELETE FROM AUTH",
+					"INSERT INTO AUTH VALUES ('myUser', 'ciao')",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "ciao")
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthKOHttpPlaintextByQuery(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode:    "HTTP_BASIC",
+			ByQuery: "SELECT 1 FROM AUTH WHERE USER = :user AND PASS = :password",
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+					"CREATE TABLE IF NOT EXISTS AUTH (USER TEXT, PASS TEXT)",
+					"DELETE FROM AUTH",
+					"INSERT INTO AUTH VALUES ('myUser', 'ciao')",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "cibo")
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthOkHttpPlaintextByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "HTTP_BASIC",
+			ByCredentials: []credentialsCfg{
+				{
+					User:     "myUser",
+					Password: "ciao",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "ciao")
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthKOHttpPlaintextByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:     "myUser",
+					Password: "ciao",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "cibo")
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthOkHttpHashByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:           "myUser",
+					HashedPassword: "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "ciao",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myuser", "ciao")
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthKOHttpHashByCreds(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:           "myUser",
+					HashedPassword: "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myuser", "cibo")
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestAuthWhenBothPlaintextAndHash(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:           "myUser",
+					Password:       "cibo",                                                             // This wins
+					HashedPassword: "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2", // "ciao"
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestAuthNoPasswordFails(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			Mode: "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User: "myUser",
+				},
+			},
+		},
+	}
+
+	os.Remove("env/test.yaml")
+
+	data, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile("env/test.yaml", data, 0600))
+	defer os.Remove("env/test.yaml")
+
+	cmd = exec.Command(COMMAND, "--mem-db", "test:env/test.yaml")
+	require.Error(t, cmd.Run())
 }
