@@ -1387,8 +1387,8 @@ func TestProfilerPayloadOnFile(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
@@ -1409,8 +1409,8 @@ func TestProfilerPayloadOnFile(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 }
@@ -1502,8 +1502,8 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
@@ -1524,8 +1524,8 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 }
@@ -1618,8 +1618,8 @@ func TestJournalMode(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
@@ -1640,8 +1640,8 @@ func TestJournalMode(t *testing.T) {
 	require.Equal(t, 2, len(res.Results[3].RowsUpdatedBatch))
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[0])
 	require.Equal(t, 1, res.Results[3].RowsUpdatedBatch[1])
-	// FIXME require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
-	// FIXME require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 1, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 }
@@ -2154,3 +2154,79 @@ func TestAuthNoPasswordFails(t *testing.T) {
 	cmd = exec.Command(COMMAND, "--mem-db", "test:env/test.yaml")
 	require.Error(t, cmd.Run())
 }
+
+func TestBothValueAndBatchFail(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
+				Values:    mkRaw(map[string]interface{}{"id": 0, "val": "zero"}),
+				ValuesBatch: []map[string]json.RawMessage{
+					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+				},
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusBadRequest, code)
+}
+
+// func TestCORSOk(t *testing.T) {
+// 	cfg := db{
+// 		CORSOrigin: "*",
+// 	}
+//
+// 	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+//
+// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
+// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
+// 	corsReq.Header.Add("Origin", "http://mydomain.com")
+//
+// 	res, _ := http.DefaultClient.Do(corsReq)
+// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+// }
+//
+// func TestCORSKO(t *testing.T) {
+// 	defer setupTest(t, nil, false, "--mem-db", "test")(true)
+//
+// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
+// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
+// 	corsReq.Header.Add("Origin", "http://mydomain.com")
+//
+// 	res, _ := http.DefaultClient.Do(corsReq)
+// 	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+// }
+//
+// func TestCORSOk2(t *testing.T) {
+// 	cfg := db{
+// 		CORSOrigin: "http://mydomain.com",
+// 	}
+//
+// 	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+//
+// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
+// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
+// 	corsReq.Header.Add("Origin", "http://mydomain.com")
+//
+// 	res, _ := http.DefaultClient.Do(corsReq)
+// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+// }
+//

@@ -25,7 +25,7 @@ use crate::{
     commons::{check_stored_stmt, prepend_colon, NamedParamsContainer},
     db_config::{AuthMode, DbConfig},
     main_config::Db,
-    req_res::{self, ReqTransactionItem, Response, ResponseItem},
+    req_res::{self, Response, ResponseItem},
     MUTEXES,
 };
 
@@ -88,36 +88,29 @@ fn do_statement(
     values: &Option<JsonValue>,
     values_batch: &Option<Vec<JsonValue>>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let mut params = vec![];
-    if values.is_some() {
-        params.push(values.as_ref().unwrap());
-    }
-    if values_batch.is_some() {
-        for p in values_batch.as_ref().unwrap() {
-            params.push(p);
-        }
+    if values.is_some() && values_batch.is_some() {
+        return Err(eyre!(
+            "at most one of values and values_batch must be provided"
+        ));
     }
 
-    Ok(match params.len() {
-        0 => {
-            let changed_rows = tx.execute(sql, [])?;
-            (None, Some(changed_rows), None)
+    Ok(if values.is_none() && values_batch.is_none() {
+        let changed_rows = tx.execute(sql, [])?;
+        (None, Some(changed_rows), None)
+    } else if values.is_some() {
+        let map = values.as_ref().unwrap().as_object().unwrap();
+        let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
+        (None, Some(changed_rows), None)
+    } else {
+        // values_batch.is_some()
+        let mut stmt = tx.prepare(sql)?;
+        let mut ret = vec![];
+        for p in values_batch.as_ref().unwrap() {
+            let map = p.as_object().unwrap();
+            let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
+            ret.push(changed_rows);
         }
-        1 => {
-            let map = params.get(0).unwrap().as_object().unwrap();
-            let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
-            (None, Some(changed_rows), None)
-        }
-        _ => {
-            let mut stmt = tx.prepare(sql)?;
-            let mut ret = vec![];
-            for p in params {
-                let map = p.as_object().unwrap();
-                let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
-                ret.push(changed_rows);
-            }
-            (None, None, Some(ret))
-        }
+        (None, None, Some(ret))
     })
 }
 
@@ -149,41 +142,44 @@ fn process(
     let mut failed = None;
 
     for (idx, trx_item) in http_req.transaction.iter().enumerate() {
-        let tmp_no_fail: bool;
-        let ret = match trx_item {
-            ReqTransactionItem::Query {
-                no_fail,
-                query,
-                values,
-            } => {
-                tmp_no_fail = *no_fail;
-                let sql =
-                    check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
-                match sql {
-                    Ok(sql) => do_query(&tx, sql, values),
-                    Err(e) => Result::Err(e),
-                }
+        if trx_item.query.is_some() == trx_item.statement.is_some() {
+            let msg = "exactly one of 'query' and 'statement' must be provided".to_string();
+            if trx_item.no_fail {
+                results.push(ResponseItem {
+                    success: false,
+                    error: Some(msg),
+                    result_set: None,
+                    rows_updated: None,
+                    rows_updated_batch: None,
+                });
+                continue;
+            } else {
+                failed = Some((idx, msg));
+                break;
             }
-            ReqTransactionItem::Stmt {
-                no_fail,
+        }
+
+        let ret = if let Some(query) = &trx_item.query {
+            let sql =
+                check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
+            match sql {
+                Ok(sql) => do_query(&tx, sql, &trx_item.values),
+                Err(e) => Result::Err(e),
+            }
+        } else {
+            let statement = trx_item.statement.as_ref().unwrap();
+            let sql = check_stored_stmt(
                 statement,
-                values,
-                values_batch,
-            } => {
-                tmp_no_fail = *no_fail;
-                let sql = check_stored_stmt(
-                    statement,
-                    stored_statements,
-                    dbconf.use_only_stored_statements,
-                );
-                match sql {
-                    Ok(sql) => do_statement(&tx, sql, values, values_batch),
-                    Err(e) => Result::Err(e),
-                }
+                stored_statements,
+                dbconf.use_only_stored_statements,
+            );
+            match sql {
+                Ok(sql) => do_statement(&tx, sql, &trx_item.values, &trx_item.values_batch),
+                Err(e) => Result::Err(e),
             }
         };
 
-        if !tmp_no_fail {
+        if !trx_item.no_fail {
             if let Err(err) = ret {
                 failed = Some((idx, err.to_string()));
                 break;

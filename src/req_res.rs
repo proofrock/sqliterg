@@ -29,28 +29,15 @@ pub struct ReqCredentials {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(untagged)]
-
-pub enum ReqTransactionItem {
-    // TODO in the end this is not a good approach, because the framework makes choices
-    //   about priority that are a bit arbitrary. For example, if both a query and a
-    //   statement are available, it chooses Query, while probably an error should be returned.
-    Query {
-        #[serde(rename = "noFail")]
-        #[serde(default = "default_as_false")]
-        no_fail: bool,
-        query: String,
-        values: Option<JsonValue>,
-    },
-    Stmt {
-        #[serde(rename = "noFail")]
-        #[serde(default = "default_as_false")]
-        no_fail: bool,
-        statement: String,
-        values: Option<JsonValue>,
-        #[serde(rename = "valuesBatch")]
-        values_batch: Option<Vec<JsonValue>>,
-    },
+pub struct ReqTransactionItem {
+    #[serde(rename = "noFail")]
+    #[serde(default = "default_as_false")]
+    pub no_fail: bool,
+    pub query: Option<String>,
+    pub statement: Option<String>,
+    pub values: Option<JsonValue>,
+    #[serde(rename = "valuesBatch")]
+    pub values_batch: Option<Vec<JsonValue>>,
 }
 
 #[derive(Debug, Deserialize)]
