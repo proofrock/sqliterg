@@ -24,7 +24,7 @@ use crate::commons::{
     abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde, split_on_first_colon,
 };
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
-use crate::macros::{bootstrap_db_macros, periodic_macro, resolve_macros};
+use crate::macros::{bootstrap_db_macros, count_macros, periodic_macro, resolve_macros};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
@@ -133,7 +133,20 @@ fn compose_single_db(
     let macros: HashMap<String, Macro> = resolve_macros(&mut dbconf, &stored_statements);
 
     if !macros.is_empty() {
-        println!("  - {} macros configured", macros.len());
+        println!("  - {} macro(s) configured", macros.len());
+        let count = count_macros(macros.to_owned());
+        if count[0] > 0 {
+            println!("    - {} applied on database creation", count[0]);
+        }
+        if count[1] > 0 {
+            println!("    - {} applied on server startup", count[1]);
+        }
+        if count[2] > 0 {
+            println!("    - {} applied periodically", count[2]);
+        }
+        if count[3] > 0 {
+            println!("    - {} callable via web service", count[3]);
+        }
     }
 
     let mut conn = if_abort_rusqlite(Connection::open(conn_string));

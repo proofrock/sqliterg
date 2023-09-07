@@ -136,6 +136,18 @@ pub fn bootstrap_backup(
                 }
             }
             println!("  - backup configured");
+            if bex.on_create {
+                println!("    - performed on database creation");
+            }
+            if bex.on_startup {
+                println!("    - performed on server startup");
+            }
+            if bex.period > 0 {
+                println!("    - performed periodically");
+            }
+            if bex.web_service.is_some() {
+                println!("    - callable via web service");
+            }
         }
         None => (),
     }

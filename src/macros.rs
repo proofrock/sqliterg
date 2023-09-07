@@ -245,3 +245,24 @@ pub fn periodic_macro(macr: Macro, db_name: String) {
         });
     }
 }
+
+pub fn count_macros(macros: HashMap<String, Macro>) -> [usize; 4] {
+    // return [num_on_create, num_on_startup, num_periodic, num_exposed_via_webservice]
+    let mut ret = [0, 0, 0, 0];
+    for macr in macros.values() {
+        let e = &macr.execution;
+        if e.on_create {
+            ret[0] += 1;
+        }
+        if e.on_startup {
+            ret[1] += 1;
+        }
+        if e.period > 0 {
+            ret[2] += 1;
+        }
+        if e.web_service.is_some() {
+            ret[3] += 1;
+        }
+    }
+    ret
+}

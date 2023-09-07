@@ -39,7 +39,7 @@ pub fn process_creds(
 
 fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>) -> bool {
     for c in creds {
-        // TODO hash table lookup
+        // TODO hash table lookup? I don't expect the credentials list to grow very much, so it may be overkill (and use memory)
         if equal_case_insensitive(&user, &c.user) {
             return process_creds(&Some(password), &c.password, &c.hashed_password);
         }

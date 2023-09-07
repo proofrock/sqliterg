@@ -88,12 +88,6 @@ fn do_statement(
     values: &Option<JsonValue>,
     values_batch: &Option<Vec<JsonValue>>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    if values.is_some() && values_batch.is_some() {
-        return Err(eyre!(
-            "at most one of values and values_batch must be provided"
-        ));
-    }
-
     Ok(if values.is_none() && values_batch.is_none() {
         let changed_rows = tx.execute(sql, [])?;
         (None, Some(changed_rows), None)
@@ -139,49 +133,49 @@ fn process(
     let tx = conn.transaction()?;
 
     let mut results = vec![];
-    let mut failed = None;
+    let mut failed: Option<(u16, usize, String)> = None; // http code, index, error
 
     for (idx, trx_item) in http_req.transaction.iter().enumerate() {
-        if trx_item.query.is_some() == trx_item.statement.is_some() {
-            let msg = "exactly one of 'query' and 'statement' must be provided".to_string();
-            if trx_item.no_fail {
-                results.push(ResponseItem {
-                    success: false,
-                    error: Some(msg),
-                    result_set: None,
-                    rows_updated: None,
-                    rows_updated_batch: None,
-                });
-                continue;
-            } else {
-                failed = Some((idx, msg));
-                break;
+        #[allow(clippy::type_complexity)]
+        let ret: Result<
+            (Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>),
+            (u16, String), // Error: (http code, message)
+        > = if trx_item.query.is_some() == trx_item.statement.is_some() {
+            Err((
+                400,
+                "exactly one of 'query' and 'statement' must be provided".to_string(),
+            ))
+        } else if let Some(query) = &trx_item.query {
+            match check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements) {
+                Ok(sql) => match do_query(&tx, sql, &trx_item.values) {
+                    Ok(ok_payload) => Ok(ok_payload),
+                    Err(err) => Err((500, err.to_string())),
+                },
+                Err(e) => Err((409, e.to_string())),
             }
-        }
-
-        let ret = if let Some(query) = &trx_item.query {
-            let sql =
-                check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
-            match sql {
-                Ok(sql) => do_query(&tx, sql, &trx_item.values),
-                Err(e) => Result::Err(e),
-            }
+        } else if trx_item.values.is_some() && trx_item.values_batch.is_some() {
+            Err((
+                400,
+                "at most one of values and values_batch must be provided".to_string(),
+            ))
         } else {
-            let statement = trx_item.statement.as_ref().unwrap();
-            let sql = check_stored_stmt(
+            let statement = trx_item.statement.as_ref().unwrap(); // always present, for the previous if's
+            match check_stored_stmt(
                 statement,
                 stored_statements,
                 dbconf.use_only_stored_statements,
-            );
-            match sql {
-                Ok(sql) => do_statement(&tx, sql, &trx_item.values, &trx_item.values_batch),
-                Err(e) => Result::Err(e),
+            ) {
+                Ok(sql) => match do_statement(&tx, sql, &trx_item.values, &trx_item.values_batch) {
+                    Ok(ok_payload) => Ok(ok_payload),
+                    Err(err) => Err((500, err.to_string())),
+                },
+                Err(e) => Err((409, e.to_string())),
             }
         };
 
         if !trx_item.no_fail {
             if let Err(err) = ret {
-                failed = Some((idx, err.to_string()));
+                failed = Some((err.0, idx, err.1));
                 break;
             }
         }
@@ -196,7 +190,7 @@ fn process(
             },
             Err(err) => ResponseItem {
                 success: false,
-                error: Some(err.to_string()),
+                error: Some(err.1),
                 result_set: None,
                 rows_updated: None,
                 rows_updated_batch: None,
@@ -207,8 +201,7 @@ fn process(
     Ok(match failed {
         Some(f) => {
             tx.rollback()?;
-            // FIXME should be 500 for SQL errors, though...
-            Response::new_err(400, f.0 as isize, f.1)
+            Response::new_err(f.0, f.1 as isize, f.2)
         }
         None => {
             tx.commit()?;

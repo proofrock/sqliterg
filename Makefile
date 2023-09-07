@@ -7,7 +7,7 @@ profile:
 test:
 	- pkill sqliterg
 	make build-debug
-	cd tests; go test -v -timeout 10m
+	cd tests; go test -v -timeout 5m
 
 test-short:
 	- pkill sqliterg

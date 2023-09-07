@@ -201,7 +201,7 @@ func TestStatementQueryMismatch(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Statement: "SELECT 1"}}})
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 }
 
 func TestFileDbEmpty(t *testing.T) {
@@ -276,7 +276,7 @@ func TestFail(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 }
 
 func TestTx(t *testing.T) {
@@ -368,7 +368,7 @@ func TestTxRollback(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 
 	req = request{
 		Transaction: []requestItem{
@@ -516,7 +516,7 @@ func TestFailRO(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 }
 
 func TestOkRO(t *testing.T) {
@@ -571,7 +571,7 @@ func TestFailSQO(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusConflict, code)
 }
 
 func TestOkSQO(t *testing.T) {
@@ -1202,7 +1202,7 @@ func TestFailROButMacroCanModify(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 }
 
 func TestFailROButMacroCanModify2(t *testing.T) {
@@ -1234,7 +1234,7 @@ func TestFailROButMacroCanModify2(t *testing.T) {
 
 	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	require.Equal(t, http.StatusBadRequest, code)
+	require.Equal(t, http.StatusInternalServerError, code)
 }
 
 func TestDbSegregationMem(t *testing.T) {
