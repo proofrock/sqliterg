@@ -33,10 +33,10 @@ pub fn abort(str: String) -> ! {
 
 const COLON: &str = ":";
 
-pub fn prepend_colon(str: &String) -> String {
+pub fn prepend_colon(str: &str) -> String {
     let mut ret = COLON.to_string();
     ret.push_str(str);
-    return ret;
+    ret
 }
 
 // https://github.com/serde-rs/serde/issues/1030#issuecomment-522278006
@@ -72,7 +72,7 @@ pub fn sha256(input: &String) -> String {
     hex::encode(digest.as_ref())
 }
 
-pub fn equal_case_insensitive(s1: &String, s2: &String) -> bool {
+pub fn equal_case_insensitive(s1: &str, s2: &str) -> bool {
     s1.to_lowercase() == s2.to_lowercase()
 }
 
@@ -118,7 +118,7 @@ pub fn check_stored_stmt<'a>(
     stored_statements: &'a HashMap<String, String>,
     use_only_stored_statements: bool,
 ) -> Result<&'a String> {
-    match sql.strip_prefix("^") {
+    match sql.strip_prefix('^') {
         Some(s) => match stored_statements.get(&s.to_string()) {
             Some(s) => Ok(s),
             None => Err(eyre!("Stored statement '{}' not found", sql)),
@@ -139,7 +139,7 @@ pub fn resolve_tilde(p: &String) -> String {
     shellexpand::tilde(p).into_owned()
 }
 
-pub fn split_on_first_colon(input: &String) -> (String, String) {
+pub fn split_on_first_colon(input: &str) -> (String, String) {
     let mut parts = input.splitn(2, ':');
     let first_part = parts.next().unwrap_or_default().to_string();
     let second_part = parts.next().unwrap_or_default().to_string();

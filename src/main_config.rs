@@ -24,7 +24,7 @@ use crate::commons::{
     abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde, split_on_first_colon,
 };
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
-use crate::macros::{bootstrap_db_macros, periodic_macro, resolve_macros};
+use crate::macros::{bootstrap_db_macros, count_macros, periodic_macro, resolve_macros};
 use crate::MUTEXES;
 
 #[derive(Debug, Clone)]
@@ -70,7 +70,7 @@ fn compose_single_db(
         }
     }
 
-    let mut dbconf = if yaml == "" || !file_exists(yaml) {
+    let mut dbconf = if yaml.is_empty() || !file_exists(yaml) {
         println!("  - companion file not found: assuming defaults");
         DbConfig::default()
     } else {
@@ -81,7 +81,7 @@ fn compose_single_db(
     if let Some(b) = &mut dbconf.backup {
         assert(
             b.num_files > 0,
-            format!("backup: num_files must be 1 or more"),
+            "backup: num_files must be 1 or more".to_string(),
         );
         let bd = resolve_tilde(&b.backup_dir);
         assert(
@@ -94,14 +94,14 @@ fn compose_single_db(
     if let Some(a) = &dbconf.auth {
         assert(
             a.by_credentials.is_none() != a.by_query.is_none(),
-            format!("auth: exactly one among by_credentials and by_query must be specified"),
+            "auth: exactly one among by_credentials and by_query must be specified".to_string(),
         );
         if let Some(vc) = &a.by_credentials {
             for c in vc {
                 assert(
-                    c.password.is_none() && c.hashed_password.is_none(),
+                    c.password.is_some() || c.hashed_password.is_some(),
                     format!(
-                        "auth: user '{}': password or hashed_password must be specified",
+                        "auth: user '{}': password or hashedPassword must be specified",
                         &c.user
                     ),
                 );
@@ -120,7 +120,7 @@ fn compose_single_db(
         })
         .unwrap_or_default();
 
-    if stored_statements.len() > 0 {
+    if !stored_statements.is_empty() {
         println!(
             "  - {} stored statements configured",
             stored_statements.len()
@@ -132,8 +132,21 @@ fn compose_single_db(
 
     let macros: HashMap<String, Macro> = resolve_macros(&mut dbconf, &stored_statements);
 
-    if macros.len() > 0 {
-        println!("  - {} macros configured", macros.len());
+    if !macros.is_empty() {
+        println!("  - {} macro(s) configured", macros.len());
+        let count = count_macros(macros.to_owned());
+        if count[0] > 0 {
+            println!("    - {} applied on database creation", count[0]);
+        }
+        if count[1] > 0 {
+            println!("    - {} applied on server startup", count[1]);
+        }
+        if count[2] > 0 {
+            println!("    - {} applied periodically", count[2]);
+        }
+        if count[3] > 0 {
+            println!("    - {} callable via web service", count[3]);
+        }
     }
 
     let mut conn = if_abort_rusqlite(Connection::open(conn_string));
@@ -151,7 +164,7 @@ fn compose_single_db(
         periodic_macro(macr.to_owned(), db_name.to_owned());
     }
 
-    bootstrap_backup(is_new_db, &dbconf, db_name, db_path, &mut conn);
+    bootstrap_backup(is_new_db, &dbconf, db_name, db_path, &conn);
 
     periodic_backup(
         dbconf.to_owned(),

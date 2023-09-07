@@ -25,7 +25,7 @@ use crate::{
     commons::{check_stored_stmt, prepend_colon, NamedParamsContainer},
     db_config::{AuthMode, DbConfig},
     main_config::Db,
-    req_res::{self, ReqTransactionItem, Response, ResponseItem},
+    req_res::{self, Response, ResponseItem},
     MUTEXES,
 };
 
@@ -50,12 +50,13 @@ fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContaine
     NamedParamsContainer::from(named_params)
 }
 
+#[allow(clippy::type_complexity)]
 fn do_query(
     tx: &Transaction,
-    sql: &String,
+    sql: &str,
     values: &Option<JsonValue>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let mut stmt = tx.prepare(&sql)?;
+    let mut stmt = tx.prepare(sql)?;
     let column_names: Vec<String> = stmt
         .column_names()
         .iter()
@@ -80,42 +81,30 @@ fn do_query(
     Ok((Some(response), None, None))
 }
 
+#[allow(clippy::type_complexity)]
 fn do_statement(
     tx: &Transaction,
-    sql: &String,
+    sql: &str,
     values: &Option<JsonValue>,
     values_batch: &Option<Vec<JsonValue>>,
 ) -> Result<(Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>)> {
-    let mut params = vec![];
-    if values.is_some() {
-        params.push(values.as_ref().unwrap());
-    }
-    if values_batch.is_some() {
+    Ok(if values.is_none() && values_batch.is_none() {
+        let changed_rows = tx.execute(sql, [])?;
+        (None, Some(changed_rows), None)
+    } else if values.is_some() {
+        let map = values.as_ref().unwrap().as_object().unwrap();
+        let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
+        (None, Some(changed_rows), None)
+    } else {
+        // values_batch.is_some()
+        let mut stmt = tx.prepare(sql)?;
+        let mut ret = vec![];
         for p in values_batch.as_ref().unwrap() {
-            params.push(p);
+            let map = p.as_object().unwrap();
+            let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
+            ret.push(changed_rows);
         }
-    }
-
-    Ok(match params.len() {
-        0 => {
-            let changed_rows = tx.execute(sql, [])?;
-            (None, Some(changed_rows), None)
-        }
-        1 => {
-            let map = params.get(0).unwrap().as_object().unwrap();
-            let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
-            (None, Some(changed_rows), None)
-        }
-        _ => {
-            let mut stmt = tx.prepare(&sql)?;
-            let mut ret = vec![];
-            for p in params {
-                let map = p.as_object().unwrap();
-                let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
-                ret.push(changed_rows);
-            }
-            (None, None, Some(ret))
-        }
+        (None, None, Some(ret))
     })
 }
 
@@ -126,64 +115,69 @@ fn process(
     dbconf: &DbConfig,
     auth_header: &Option<Authorization<Basic>>,
 ) -> Result<Response> {
-    if dbconf.auth.is_some() {
-        if !process_auth(
+    if dbconf.auth.is_some()
+        && !process_auth(
             dbconf.auth.as_ref().unwrap(),
             conn,
             &http_req.credentials,
             auth_header,
-        ) {
-            return Ok(Response::new_err(
-                401,
-                -1,
-                "Authorization failed".to_string(),
-            ));
-        }
+        )
+    {
+        return Ok(Response::new_err(
+            401,
+            -1,
+            "Authorization failed".to_string(),
+        ));
     }
 
     let tx = conn.transaction()?;
 
     let mut results = vec![];
-    let mut failed = None;
+    let mut failed: Option<(u16, usize, String)> = None; // http code, index, error
 
     for (idx, trx_item) in http_req.transaction.iter().enumerate() {
-        let tmp_no_fail: bool;
-        let ret = match trx_item {
-            ReqTransactionItem::Query {
-                no_fail,
-                query,
-                values,
-            } => {
-                tmp_no_fail = *no_fail;
-                let sql =
-                    check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements);
-                match sql {
-                    Ok(sql) => do_query(&tx, &sql, values),
-                    Err(e) => Result::Err(e),
-                }
+        #[allow(clippy::type_complexity)]
+        let ret: Result<
+            (Option<Vec<JsonValue>>, Option<usize>, Option<Vec<usize>>),
+            (u16, String), // Error: (http code, message)
+        > = if trx_item.query.is_some() == trx_item.statement.is_some() {
+            Err((
+                400,
+                "exactly one of 'query' and 'statement' must be provided".to_string(),
+            ))
+        } else if let Some(query) = &trx_item.query {
+            match check_stored_stmt(query, stored_statements, dbconf.use_only_stored_statements) {
+                Ok(sql) => match do_query(&tx, sql, &trx_item.values) {
+                    Ok(ok_payload) => Ok(ok_payload),
+                    Err(err) => Err((500, err.to_string())),
+                },
+                Err(e) => Err((409, e.to_string())),
             }
-            ReqTransactionItem::Stmt {
-                no_fail,
+        } else if trx_item.values.is_some() && trx_item.values_batch.is_some() {
+            Err((
+                400,
+                "at most one of values and values_batch must be provided".to_string(),
+            ))
+        } else {
+            let statement = trx_item.statement.as_ref().unwrap(); // always present, for the previous if's
+            match check_stored_stmt(
                 statement,
-                values,
-                values_batch,
-            } => {
-                tmp_no_fail = *no_fail;
-                let sql = check_stored_stmt(
-                    statement,
-                    stored_statements,
-                    dbconf.use_only_stored_statements,
-                );
-                match sql {
-                    Ok(sql) => do_statement(&tx, &sql, values, values_batch),
-                    Err(e) => Result::Err(e),
-                }
+                stored_statements,
+                dbconf.use_only_stored_statements,
+            ) {
+                Ok(sql) => match do_statement(&tx, sql, &trx_item.values, &trx_item.values_batch) {
+                    Ok(ok_payload) => Ok(ok_payload),
+                    Err(err) => Err((500, err.to_string())),
+                },
+                Err(e) => Err((409, e.to_string())),
             }
         };
 
-        if !ret.is_ok() && !tmp_no_fail {
-            failed = Some((idx, ret.unwrap_err().to_string()));
-            break;
+        if !trx_item.no_fail {
+            if let Err(err) = ret {
+                failed = Some((err.0, idx, err.1));
+                break;
+            }
         }
 
         results.push(match ret {
@@ -196,7 +190,7 @@ fn process(
             },
             Err(err) => ResponseItem {
                 success: false,
-                error: Some(err.to_string()),
+                error: Some(err.1),
                 result_set: None,
                 rows_updated: None,
                 rows_updated_batch: None,
@@ -207,7 +201,7 @@ fn process(
     Ok(match failed {
         Some(f) => {
             tx.rollback()?;
-            Response::new_err(500, f.0 as isize, f.1)
+            Response::new_err(f.0, f.1 as isize, f.2)
         }
         None => {
             tx.commit()?;
@@ -222,7 +216,7 @@ pub async fn handler(
     db_conf: web::Data<Db>,
     db_name: web::Data<String>,
 ) -> impl Responder {
-    let auth = if (&db_conf).conf.auth.is_some()
+    let auth = if (db_conf).conf.auth.is_some()
         && matches!(
             db_conf.conf.auth.as_ref().unwrap().mode,
             AuthMode::HttpBasic
@@ -239,7 +233,5 @@ pub async fn handler(
     let mut db_lock_guard = db_lock.lock().unwrap();
     let conn = db_lock_guard.deref_mut();
 
-    let result = process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap();
-
-    result
+    process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap()
 }

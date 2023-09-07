@@ -29,25 +29,15 @@ pub struct ReqCredentials {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(untagged)]
-
-pub enum ReqTransactionItem {
-    Query {
-        #[serde(rename = "noFail")]
-        #[serde(default = "default_as_false")]
-        no_fail: bool,
-        query: String,
-        values: Option<JsonValue>,
-    },
-    Stmt {
-        #[serde(rename = "noFail")]
-        #[serde(default = "default_as_false")]
-        no_fail: bool,
-        statement: String,
-        values: Option<JsonValue>,
-        #[serde(rename = "valuesBatch")]
-        values_batch: Option<Vec<JsonValue>>,
-    },
+pub struct ReqTransactionItem {
+    #[serde(rename = "noFail")]
+    #[serde(default = "default_as_false")]
+    pub no_fail: bool,
+    pub query: Option<String>,
+    pub statement: Option<String>,
+    pub values: Option<JsonValue>,
+    #[serde(rename = "valuesBatch")]
+    pub values_batch: Option<Vec<JsonValue>>,
 }
 
 #[derive(Debug, Deserialize)]

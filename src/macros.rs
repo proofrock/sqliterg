@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-    time::Duration,
-};
+use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use actix_web::{
     rt::{
@@ -47,6 +43,7 @@ pub fn resolve_macros(
     if let Some(ms) = &mut dbconf.macros {
         for macr in ms {
             let mut statements: Vec<String> = vec![];
+            #[allow(clippy::unnecessary_to_owned)]
             for statement in macr.statements.to_owned() {
                 let statement =
                     if_abort_eyre(check_stored_stmt(&statement, stored_statements, false));
@@ -148,68 +145,63 @@ pub fn bootstrap_db_macros(
 }
 
 pub async fn handler(
-    db_map: web::Data<HashMap<String, Db>>,
-    db_name: Path<String>,
+    db_conf: web::Data<Db>,
+    db_name: web::Data<String>,
     macro_name: Path<String>,
     token: web::Query<Token>,
 ) -> impl Responder {
-    let db_conf = db_map.get(db_name.deref());
-    match db_conf {
-        Some(db_conf) => match db_conf.macros.get(&macro_name.to_string()) {
-            Some(macr) => match &macr.execution.web_service {
-                Some(mex_ws) => {
-                    if !process_creds(&token.token, &mex_ws.auth_token, &mex_ws.hashed_auth_token) {
-                        return Response::new_err(
-                            401,
-                            -1,
-                            format!(
-                                "In database '{}', macro '{}': token mismatch",
-                                db_name, macro_name
-                            ),
-                        );
-                    }
+    let db_name = db_name.to_string();
+    let macro_name = macro_name.to_string();
 
-                    let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
-                    let mut db_lock_guard = db_lock.lock().unwrap();
-                    let conn = db_lock_guard.deref_mut();
-
-                    exec_macro_single(&macr, conn)
+    match db_conf.macros.get(&macro_name) {
+        Some(macr) => match &macr.execution.web_service {
+            Some(mex_ws) => {
+                if !process_creds(&token.token, &mex_ws.auth_token, &mex_ws.hashed_auth_token) {
+                    return Response::new_err(
+                        401,
+                        -1,
+                        format!(
+                            "In database '{}', macro '{}': token mismatch",
+                            db_name, macro_name
+                        ),
+                    );
                 }
-                None => Response::new_err(
-                    404,
-                    -1,
-                    format!(
-                        "In database '{}', macro '{}' doesn't have a backup.execution node",
-                        db_name, macro_name
-                    ),
-                ),
-            },
-            None => {
-                return Response::new_err(
-                    404,
-                    -1,
-                    format!(
-                        "Database '{}' doesn't have a macro named '{}'",
-                        db_name, macro_name
-                    ),
-                )
+
+                let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
+                let mut db_lock_guard = db_lock.lock().unwrap();
+                let conn = db_lock_guard.deref_mut();
+
+                exec_macro_single(macr, conn)
             }
+            None => Response::new_err(
+                404,
+                -1,
+                format!(
+                    "In database '{}', macro '{}' doesn't have a backup.execution node",
+                    db_name, macro_name
+                ),
+            ),
         },
-        None => Response::new_err(404, -1, format!("Unknown database '{}'", &db_name)),
+        None => Response::new_err(
+            404,
+            -1,
+            format!(
+                "Database '{}' doesn't have a macro named '{}'",
+                db_name, macro_name
+            ),
+        ),
     }
 }
 
-pub fn periodic_macro(macr: Macro, db_name: String) -> () {
+pub fn periodic_macro(macr: Macro, db_name: String) {
     if macr.execution.period > 0 {
         spawn(async move {
             let p = Duration::from_secs(macr.execution.period as u64 * 60);
             let first_start = Instant::now().checked_add(p).unwrap();
             let mut interval = interval_at(first_start, p);
 
-            interval.tick().await; // skip first execution
-
             loop {
-                interval.tick().await;
+                interval.tick().await; // skip first execution
 
                 let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
                 let mut db_lock_guard = db_lock.lock().unwrap();
@@ -245,12 +237,32 @@ pub fn periodic_macro(macr: Macro, db_name: String) -> () {
                     Err(e) => {
                         eprintln!(
                             "Commit failed for startup macros in db '{}': {}",
-                            db_name,
-                            e.to_string()
+                            db_name, e
                         );
                     }
                 }
             }
         });
     }
+}
+
+pub fn count_macros(macros: HashMap<String, Macro>) -> [usize; 4] {
+    // return [num_on_create, num_on_startup, num_periodic, num_exposed_via_webservice]
+    let mut ret = [0, 0, 0, 0];
+    for macr in macros.values() {
+        let e = &macr.execution;
+        if e.on_create {
+            ret[0] += 1;
+        }
+        if e.on_startup {
+            ret[1] += 1;
+        }
+        if e.period > 0 {
+            ret[2] += 1;
+        }
+        if e.web_service.is_some() {
+            ret[3] += 1;
+        }
+    }
+    ret
 }
