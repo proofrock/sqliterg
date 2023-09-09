@@ -27,3 +27,7 @@ update:
 
 lint:
 	cargo clippy 2> clippy_results.txt
+
+docker:
+	docker build . -t germanorizzo/sqliterg:latest
+	
