@@ -11,3 +11,4 @@
 - The backup files' pattern is specified as a backup directory, being intended that all the files in it are subject to deletion
 - HTTP authentication is now named HTTP_BASIC (possible future JWT implementation)
 - disableWALMode is now a more generic journalMode, for when WAL2 will be released
+- it is possible to specify the index file when serving a directory

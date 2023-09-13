@@ -29,5 +29,5 @@ lint:
 	cargo clippy 2> clippy_results.txt
 
 docker:
-	docker build . -t germanorizzo/sqliterg:latest
+	docker buildx build . --no-cache -t germanorizzo/sqliterg:latest --push
 	
