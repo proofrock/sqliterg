@@ -21,7 +21,8 @@ use rusqlite::Connection;
 use crate::backup::{bootstrap_backup, periodic_backup};
 use crate::commandline::AppConfig;
 use crate::commons::{
-    abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde, split_on_first_colon,
+    abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde,
+    split_on_first_double_colon,
 };
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
 use crate::macros::{bootstrap_db_macros, count_macros, periodic_macro, resolve_macros};
@@ -38,17 +39,22 @@ pub struct Db {
     pub macros: HashMap<String, Macro>,
 }
 
-fn to_base_name(path: &String) -> String {
-    let path = Path::new(&path);
-    path.file_stem().unwrap().to_str().unwrap().to_string()
-}
+fn split_path(path: &str) -> (String, String, String) {
+    // returns (db_path, yaml, db_name)
+    let (mut db_path, mut yaml) = split_on_first_double_colon(path);
+    db_path = resolve_tilde(&db_path);
+    let path = Path::new(&db_path);
+    if yaml.is_empty() {
+        let file_stem = path.file_stem().unwrap().to_str().unwrap();
+        let yaml_file_name = format!("{file_stem}.yaml");
+        let yaml_path = path.with_file_name(yaml_file_name);
+        yaml = yaml_path.to_str().unwrap().to_string();
+    }
+    let yaml = resolve_tilde(&yaml);
 
-fn to_yaml_path(path: &String) -> String {
-    let path = Path::new(&path);
-    let file_stem = path.file_stem().unwrap().to_str().unwrap();
-    let yaml_file_name = format!("{file_stem}.yaml");
-    let yaml_path = path.with_file_name(yaml_file_name);
-    yaml_path.to_str().unwrap().to_string()
+    let db_name = path.file_stem().unwrap().to_str().unwrap().to_string();
+
+    (db_path, yaml, db_name)
 }
 
 fn compose_single_db(
@@ -202,11 +208,9 @@ pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
     let mut db_map = HashMap::new();
     let mut mutexes = HashMap::new();
     for db_path in &cl.db {
-        let db_path = resolve_tilde(db_path);
-        let db_name = to_base_name(&db_path);
+        let (db_path, yaml, db_name) = split_path(db_path);
         check_db_name(&db_name, &db_map);
 
-        let yaml = to_yaml_path(&db_path);
         let is_new_db = !file_exists(&db_path);
 
         let (db_cfg, conn) =
@@ -216,7 +220,7 @@ pub fn compose_db_map(cl: &AppConfig) -> HashMap<String, Db> {
         mutexes.insert(db_name.to_owned(), Mutex::new(conn));
     }
     for db in &cl.mem_db {
-        let (db_name, yaml) = split_on_first_colon(db);
+        let (db_name, yaml) = split_on_first_double_colon(db);
         check_db_name(&db_name, &db_map);
 
         let yaml = resolve_tilde(&yaml);
