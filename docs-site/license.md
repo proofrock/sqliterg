@@ -1,3 +1,11 @@
+---
+description: Apache License v2
+---
+
+# ⚖ License
+
+sqliterg is developed under the [Apache License v2](http://www.apache.org/licenses/)
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
