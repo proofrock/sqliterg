@@ -29,9 +29,9 @@ pub struct AppConfig {
         help = "The host to bind"
     )]
     pub bind_host: String,
-    #[arg(long, value_name = "DB_PATH", help = "Repeatable; paths of file-based databases", num_args = 0..)]
+    #[arg(long, value_name = "DB_PATH", help = "Repeatable; paths of file-based databases [format: \"dbFilePath[::configFilePath]\"]", num_args = 0..)]
     pub db: Vec<String>,
-    #[arg(long, value_name = "MEM_DB", help = "Repeatable; config for memory-based databases (format: ID[:configFilePath])", num_args = 0..)]
+    #[arg(long, value_name = "MEM_DB", help = "Repeatable; config for memory-based databases [format: \"ID[::configFilePath]\"]", num_args = 0..)]
     pub mem_db: Vec<String>,
     #[arg(
         short,
@@ -47,6 +47,13 @@ pub struct AppConfig {
         help = "A directory to serve with builtin HTTP server"
     )]
     pub serve_dir: Option<String>,
+    #[arg(
+        long,
+        value_name = "FILE",
+        help = "If --serve-dir is configured, the file to treat as index.",
+        default_value = "index.html"
+    )]
+    pub index_file: String,
 }
 
 pub fn parse_cli() -> AppConfig {

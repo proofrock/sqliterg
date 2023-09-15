@@ -3,6 +3,7 @@
 - URL to contact for POST is now `http://&lt;host&gt;:&lt;port&gt;/&lt;db_name&gt/exec` (note the `/exec/`)
 - Read-only mode is performed via the `query_only` PRAGMA
 - Even if the database is read only, it's possible to perform init macros
+- YAML file, when explicitly given, is separated with a "::" from the db file/name (to solve ambiguities in windows)
 - Stored Statements are now prefixed with `^`, not `#`, because it can be used in macros that are defined in the YAML file, where `#` would be a comment
 - ScheduledTasks are replaced with the new macro and backup subsystems
     - Avoid use of scheduler logic, as it is very language-dependent and may be different from cron, with which the user is probably familiar
@@ -10,3 +11,4 @@
 - The backup files' pattern is specified as a backup directory, being intended that all the files in it are subject to deletion
 - HTTP authentication is now named HTTP_BASIC (possible future JWT implementation)
 - disableWALMode is now a more generic journalMode, for when WAL2 will be released
+- it is possible to specify the index file when serving a directory

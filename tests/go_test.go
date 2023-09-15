@@ -665,7 +665,7 @@ func TestStoredQueryMem(t *testing.T) {
 		StoredStatement: []storedStatement{{Id: "Q", Sql: "SELECT 1"}},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	req := request{
 		Transaction: []requestItem{
@@ -689,7 +689,7 @@ func TestInitMacro(t *testing.T) {
 		Macros: []macro{{Id: "M1", Statements: []string{"CREATE TABLE T1 (ID INT PRIMARY KEY, VAL TEXT NOT NULL)"}, Execution: execution{OnCreate: &TRUE}}},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	req := request{
 		Transaction: []requestItem{
@@ -761,7 +761,7 @@ func TestStartupAndCreateMacroIsJustOne(t *testing.T) {
 		Macros: []macro{{Id: "M1", Statements: []string{"CREATE TABLE IF NOT EXISTS T1 (ID INT, VAL TEXT)", "INSERT INTO T1 VALUES (1, '')"}, Execution: execution{OnCreate: &TRUE, OnStartup: &TRUE}}},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	req := request{
 		Transaction: []requestItem{
@@ -783,7 +783,7 @@ func TestInitMacroFailureDeletesFile(t *testing.T) {
 		Macros: []macro{{Id: "M1", Statements: []string{"<INVALID SQL> CREATE TABLE T1 (ID INT PRIMARY KEY, VAL TEXT NOT NULL)"}, Execution: execution{OnCreate: &TRUE}}},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	require.NoFileExists(t, "env/test.db")
 }
@@ -794,7 +794,7 @@ func TestInitMacroReferencingStoredStatement(t *testing.T) {
 		Macros:          []macro{{Id: "M1", Statements: []string{"^SQL"}, Execution: execution{OnCreate: &TRUE}}},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	req := request{
 		Transaction: []requestItem{
@@ -1062,7 +1062,7 @@ func TestInitBackup(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	require.FileExists(t, fmt.Sprintf("env/backups/test_%s", now()))
 }
@@ -1080,7 +1080,7 @@ func TestNoInitBackup(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 
 	require.NoFileExists(t, fmt.Sprintf("env/backups/test_%s.db", now()))
 }
@@ -1437,7 +1437,7 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1646,6 +1646,25 @@ func TestJournalMode(t *testing.T) {
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 }
 
+func TestExplicitYAML(t *testing.T) {
+	cfg := db{
+		JournalMode: "DELETE",
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db::/env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Query: "SELECT 1",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, http.StatusOK, code)
+}
+
 // test of auth ok/inline/plaintext/byQuery was already made in TestProfilerPayloadOnMem*
 
 func TestAuthKOInlinePlaintextByQuery(t *testing.T) {
@@ -1670,7 +1689,7 @@ func TestAuthKOInlinePlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1712,7 +1731,7 @@ func TestAuthOkInlinePlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1754,7 +1773,7 @@ func TestAuthKOInlinePlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1796,7 +1815,7 @@ func TestAuthOkInlineHashByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1838,7 +1857,7 @@ func TestAuthKOInlineHashByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -1878,7 +1897,7 @@ func TestAuthOkHttpPlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Transaction: []requestItem{
 			{
@@ -1914,7 +1933,7 @@ func TestAuthKOHttpPlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Transaction: []requestItem{
 			{
@@ -1952,7 +1971,7 @@ func TestAuthOkHttpPlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Transaction: []requestItem{
 			{
@@ -1990,7 +2009,7 @@ func TestAuthKOHttpPlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Transaction: []requestItem{
 			{
@@ -2028,7 +2047,7 @@ func TestAuthOkHttpHashByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -2070,7 +2089,7 @@ func TestAuthKOHttpHashByCreds(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -2113,7 +2132,7 @@ func TestAuthWhenBothPlaintextAndHash(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Credentials: &credentials{
 			User:     "myUser",
@@ -2151,7 +2170,7 @@ func TestAuthNoPasswordFails(t *testing.T) {
 	require.NoError(t, os.WriteFile("env/test.yaml", data, 0600))
 	defer os.Remove("env/test.yaml")
 
-	cmd = exec.Command(COMMAND, "--mem-db", "test:env/test.yaml")
+	cmd = exec.Command(COMMAND, "--mem-db", "test::env/test.yaml")
 	require.Error(t, cmd.Run())
 }
 
@@ -2170,7 +2189,7 @@ func TestBothValueAndBatchFail(t *testing.T) {
 		},
 	}
 
-	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 	req := request{
 		Transaction: []requestItem{
 			{
@@ -2194,7 +2213,7 @@ func TestBothValueAndBatchFail(t *testing.T) {
 // 		CORSOrigin: "*",
 // 	}
 //
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 //
 // 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
 // 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
@@ -2220,7 +2239,7 @@ func TestBothValueAndBatchFail(t *testing.T) {
 // 		CORSOrigin: "http://mydomain.com",
 // 	}
 //
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test:env/test.yaml")(true)
+// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
 //
 // 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
 // 	corsReq.Header.Add("Access-Control-Request-Method", "GET")

@@ -70,11 +70,13 @@ async fn main() -> std::io::Result<()> {
     let db_map = compose_db_map(&cli);
 
     if let Some(sd) = &cli.serve_dir {
-        println!("  - serving directory: {}", sd);
+        println!("- serving directory: {}", sd);
+        println!("  - with index file: {}", &cli.index_file);
     };
 
     let app_lambda = move || {
         let dir = cli.serve_dir.to_owned();
+        let index_file = cli.index_file.to_owned();
         let mut a = App::new();
         for (db_name, db_conf) in db_map.iter() {
             let scop: Scope = scope(format!("/{}", db_name.to_owned()).deref())
@@ -99,7 +101,7 @@ async fn main() -> std::io::Result<()> {
         }
 
         if let Some(dir) = dir {
-            a = a.service(Files::new("/", dir));
+            a = a.service(Files::new("/", dir).index_file(index_file));
         };
         a
     };

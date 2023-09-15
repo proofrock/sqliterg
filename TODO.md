@@ -1,3 +1,4 @@
+- Manage VACUUM
 - Complete startup messages (for macros at init, ecc.)
 - Comments
 - Documentation
@@ -19,3 +20,4 @@
 # Test
 
 - CORS
+- ~

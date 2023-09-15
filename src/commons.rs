@@ -139,8 +139,8 @@ pub fn resolve_tilde(p: &String) -> String {
     shellexpand::tilde(p).into_owned()
 }
 
-pub fn split_on_first_colon(input: &str) -> (String, String) {
-    let mut parts = input.splitn(2, ':');
+pub fn split_on_first_double_colon(input: &str) -> (String, String) {
+    let mut parts = input.splitn(2, "::");
     let first_part = parts.next().unwrap_or_default().to_string();
     let second_part = parts.next().unwrap_or_default().to_string();
 

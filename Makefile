@@ -27,3 +27,6 @@ update:
 
 lint:
 	cargo clippy 2> clippy_results.txt
+
+docker:
+	docker buildx build . --no-cache -t germanorizzo/sqliterg:latest --push
