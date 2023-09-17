@@ -31,14 +31,6 @@ pub fn abort(str: String) -> ! {
     exit(1);
 }
 
-const COLON: &str = ":";
-
-pub fn prepend_colon(str: &str) -> String {
-    let mut ret = COLON.to_string();
-    ret.push_str(str);
-    ret
-}
-
 // https://github.com/serde-rs/serde/issues/1030#issuecomment-522278006
 pub fn default_as_false() -> bool {
     false
