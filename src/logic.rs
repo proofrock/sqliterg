@@ -17,12 +17,13 @@ use std::{collections::HashMap, ops::DerefMut};
 use actix_web::{http::header::Header, web, HttpRequest, Responder};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
-use rusqlite::{types::Value, Connection, ToSql, Transaction};
+use rusqlite::{types::Value, Connection, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
+use serde_rusqlite::to_params_named;
 
 use crate::{
     auth::process_auth,
-    commons::{check_stored_stmt, prepend_colon, NamedParamsContainer},
+    commons::check_stored_stmt,
     db_config::{AuthMode, DbConfig},
     main_config::Db,
     req_res::{self, Response, ResponseItem},
@@ -37,17 +38,6 @@ fn val_db2val_json(val: Value) -> JsonValue {
         Value::Text(v) => json!(v),
         Value::Blob(v) => json!(v),
     }
-}
-
-// adapted from serde-rusqlite, https://github.com/twistedfall/serde_rusqlite/blob/master/LICENSE
-fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContainer {
-    let mut named_params: Vec<(String, Box<dyn ToSql>)> = Vec::new();
-
-    params
-        .iter()
-        .for_each(|(k, v)| named_params.push((prepend_colon(k), Box::new(v.to_owned()))));
-
-    NamedParamsContainer::from(named_params)
 }
 
 #[allow(clippy::type_complexity)]
@@ -65,18 +55,27 @@ fn do_query(
     let mut rows = match values {
         Some(p) => {
             let map = p.as_object().unwrap();
-            stmt.query(calc_named_params(map).slice().as_slice())?
+            stmt.query(to_params_named(map).unwrap().to_slice().as_slice())?
         }
         None => stmt.query([])?,
     };
     let mut response = vec![];
-    while let Some(row) = rows.next().unwrap() {
-        let mut map: JsonMap<String, JsonValue> = JsonMap::new();
-        for (i, col_name) in column_names.iter().enumerate() {
-            let value: Value = row.get_unwrap(i);
-            map.insert(col_name.to_string(), val_db2val_json(value));
+    loop {
+        let row = rows.next();
+        match row {
+            Ok(row) => match row {
+                Some(row) => {
+                    let mut map: JsonMap<String, JsonValue> = JsonMap::new();
+                    for (i, col_name) in column_names.iter().enumerate() {
+                        let value: Value = row.get_unwrap(i);
+                        map.insert(col_name.to_string(), val_db2val_json(value));
+                    }
+                    response.push(JsonValue::Object(map));
+                }
+                None => break,
+            },
+            Err(e) => return Err(eyre!(e.to_string())),
         }
-        response.push(JsonValue::Object(map));
     }
     Ok((Some(response), None, None))
 }
@@ -93,7 +92,7 @@ fn do_statement(
         (None, Some(changed_rows), None)
     } else if values.is_some() {
         let map = values.as_ref().unwrap().as_object().unwrap();
-        let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
+        let changed_rows = tx.execute(sql, to_params_named(map).unwrap().to_slice().as_slice())?;
         (None, Some(changed_rows), None)
     } else {
         // values_batch.is_some()
@@ -101,7 +100,7 @@ fn do_statement(
         let mut ret = vec![];
         for p in values_batch.as_ref().unwrap() {
             let map = p.as_object().unwrap();
-            let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
+            let changed_rows = stmt.execute(to_params_named(map).unwrap().to_slice().as_slice())?;
             ret.push(changed_rows);
         }
         (None, None, Some(ret))

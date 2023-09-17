@@ -30,3 +30,4 @@ lint:
 
 docker:
 	docker buildx build . --no-cache -t germanorizzo/sqliterg:latest --push
+	
