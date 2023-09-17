@@ -1,7 +1,9 @@
 - Manage VACUUM
-- Complete startup messages (for macros at init, ecc.)
 - Comments
 - Documentation
+- Cross-compile - add to README
+- Docker (also for ARM/ARM64) - add to README
+- Client libs - add to README
 
 # To doc
 
