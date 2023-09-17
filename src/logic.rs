@@ -70,13 +70,22 @@ fn do_query(
         None => stmt.query([])?,
     };
     let mut response = vec![];
-    while let Some(row) = rows.next().unwrap() {
-        let mut map: JsonMap<String, JsonValue> = JsonMap::new();
-        for (i, col_name) in column_names.iter().enumerate() {
-            let value: Value = row.get_unwrap(i);
-            map.insert(col_name.to_string(), val_db2val_json(value));
+    loop {
+        let row = rows.next();
+        match row {
+            Ok(row) => match row {
+                Some(row) => {
+                    let mut map: JsonMap<String, JsonValue> = JsonMap::new();
+                    for (i, col_name) in column_names.iter().enumerate() {
+                        let value: Value = row.get_unwrap(i);
+                        map.insert(col_name.to_string(), val_db2val_json(value));
+                    }
+                    response.push(JsonValue::Object(map));
+                }
+                None => break,
+            },
+            Err(e) => return Err(eyre!(e.to_string())),
         }
-        response.push(JsonValue::Object(map));
     }
     Ok((Some(response), None, None))
 }
