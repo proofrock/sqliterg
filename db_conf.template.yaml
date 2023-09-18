@@ -2,6 +2,8 @@
 
 # If present, "auth" defines the authentication for this database
 auth:
+  # Optional, by default 401. The error HTTP code to be returned if auth fails.
+  authErrorCode: 499
   # Mandatory. Defines how the credentials are passed to the server.
   #   "INLINE" means that credentials are passed in the request
   #   "HTTP_BASIC" uses Basic Authentication (via the "Authorization: Basic" header)
@@ -55,6 +57,8 @@ macros:
       # Exposes an endpoint to execute the macro. A token-based for of authentication is mandatory.
       # Endpoint is http://<host>:<port>/<db_name>/macro/<macro_id>
       webService:
+        # Optional, by default 401. The error HTTP code to be returned if auth fails.
+        authErrorCode: 499
         # Either a plaintext "authToken" or a SHA-256 hashed "hashedAuthToken" must be supplied.
         authToken: ciao
         hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2
@@ -76,6 +80,8 @@ backup:
     # Exposes an endpoint to execute the backup. A token-based for of authentication is mandatory.
     # Endpoint is http://<host>:<port>/<db_name>/backup
     webService:
+      # Optional, by default 401. The error HTTP code to be returned if auth fails.
+      authErrorCode: 499
       # Either a plaintext "authToken" or a SHA-256 hashed "hashedAuthToken" must be supplied.
       authToken: ciao
       hashedAuthToken: b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2

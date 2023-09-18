@@ -26,8 +26,15 @@ pub enum AuthMode {
     Inline,
 }
 
+fn default_401() -> u16 {
+    401
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Auth {
+    #[serde(rename = "authErrorCode")]
+    #[serde(default = "default_401")]
+    pub auth_error_code: u16,
     pub mode: AuthMode,
     #[serde(rename = "byQuery")]
     pub by_query: Option<String>,
@@ -51,6 +58,9 @@ pub struct StoredStatement {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ExecutionWebService {
+    #[serde(rename = "authErrorCode")]
+    #[serde(default = "default_401")]
+    pub auth_error_code: u16,
     #[serde(rename = "authToken")]
     pub auth_token: Option<String>,
     #[serde(rename = "hashedAuthToken")]

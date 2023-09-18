@@ -62,7 +62,6 @@ Obtaining an answer of:
 - "[**Macros**](https://germ.gitbook.io/sqliterg/documentation/macros)": lists of statements that can be executed at db creation, at startup, periodically or calling a web service;
 - **Backups**, rotated and also runnable at db creation, at startup, periodically or calling a web service;
 - [**CORS**](https://germ.gitbook.io/sqliterg/documentation/configuration-file#corsorigin) mode, configurable per-db;
-- Scheduled tasks can be: backup (with rotation), vacuum and/or a set of SQL statements;
 - [**Journal Mode**](https://sqlite.org/wal.html) (e.g. WAL) can be configured;
 - [**Embedded web server**](https://germ.gitbook.io/sqliterg/documentation/web-server) to directly serve web pages that can access sqliterg without CORS;- [Quite fast](features/performances.md)!
 - Comprehensive test suite (`make test`);

@@ -29,6 +29,7 @@ type credentialsCfg struct {
 }
 
 type authr struct {
+	AuthErrorCode   *int             `yaml:"authErrorCode,omitempty"`
 	Mode            string           `yaml:"mode,omitempty"` // 'INLINE' or 'HTTP_BASIC'
 	CustomErrorCode *int             `yaml:"customErrorCode,omitempty"`
 	ByQuery         string           `yaml:"byQuery,omitempty"`
@@ -41,6 +42,7 @@ type storedStatement struct {
 }
 
 type webService struct {
+	AuthErrorCode   *int    `yaml:"authErrorCode,omitempty"`
 	AuthToken       *string `yaml:"authToken,omitempty"`
 	HashedAuthToken *string `yaml:"hashedAuthToken,omitempty"`
 }

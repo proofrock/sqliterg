@@ -86,7 +86,7 @@ pub async fn handler(
             Some(bkp_ws) => {
                 if !process_creds(&token.token, &bkp_ws.auth_token, &bkp_ws.hashed_auth_token) {
                     return Response::new_err(
-                        401,
+                        bkp_ws.auth_error_code,
                         -1,
                         format!("In database '{}', backup: token mismatch", db_name),
                     );

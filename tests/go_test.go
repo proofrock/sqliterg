@@ -917,6 +917,7 @@ func TestCallableMacro(t *testing.T) {
 
 var ciao string = "ciao"
 var hciao string = "b133a0c0e9bee3be20163d2ad31d6248db292aa6dcb1ee087a2aa50e0fc75ae2"
+var custAuthError = 499
 
 func TestCallableMacroNormalPassword(t *testing.T) {
 	cfg := db{
@@ -1047,6 +1048,35 @@ func TestCallableMacroAuthFail(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, code)
 }
 
+func TestCallableMacroAuthFailCustomError(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M2",
+				Statements: []string{
+					"INSERT INTO T1 VALUES (1, '')",
+				},
+				Execution: execution{
+					WebService: &webService{
+						AuthErrorCode: &custAuthError,
+						AuthToken:     &ciao,
+					},
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/macro/M2", req)
+
+	require.Equal(t, custAuthError, code)
+}
+
 func now() string {
 	return time.Now().Format("20060102-1504")
 }
@@ -1171,6 +1201,131 @@ func TestCallableBackup(t *testing.T) {
 	require.Equal(t, http.StatusOK, code)
 
 	require.FileExists(t, fmt.Sprintf("env/backups/test_%s.db", now()))
+}
+
+func TestCallableBackupAuthOk(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/backups",
+			NumFiles:  1,
+			Execution: execution{
+				WebService: &webService{
+					AuthToken: &ciao,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/backup?token=ciao", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	require.FileExists(t, fmt.Sprintf("env/backups/test_%s.db", now()))
+}
+
+func TestCallableBackupAuthKo(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/backups",
+			NumFiles:  1,
+			Execution: execution{
+				WebService: &webService{
+					AuthToken: &ciao,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/backup?token=cibo", req)
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestCallableBackupAuthOkHash(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/backups",
+			NumFiles:  1,
+			Execution: execution{
+				WebService: &webService{
+					HashedAuthToken: &hciao,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/backup?token=ciao", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	require.FileExists(t, fmt.Sprintf("env/backups/test_%s.db", now()))
+}
+
+func TestCallableBackupAuthKoHash(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/backups",
+			NumFiles:  1,
+			Execution: execution{
+				WebService: &webService{
+					HashedAuthToken: &hciao,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/backup?token=cibo", req)
+
+	require.Equal(t, http.StatusUnauthorized, code)
+}
+
+func TestCallableBackupAuthKoCustomError(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/backups",
+			NumFiles:  1,
+			Execution: execution{
+				WebService: &webService{
+					AuthErrorCode: &custAuthError,
+					AuthToken:     &ciao,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/backup?token=cibo", req)
+
+	require.Equal(t, custAuthError, code)
 }
 
 func TestFailROButMacroCanModify(t *testing.T) {
@@ -2172,6 +2327,49 @@ func TestAuthNoPasswordFails(t *testing.T) {
 
 	cmd = exec.Command(COMMAND, "--mem-db", "test::env/test.yaml")
 	require.Error(t, cmd.Run())
+}
+
+func TestAuthKOCustomErrorCode(t *testing.T) {
+	cfg := db{
+		Auth: &authr{
+			AuthErrorCode: &custAuthError,
+			Mode:          "INLINE",
+			ByCredentials: []credentialsCfg{
+				{
+					User:     "myUser",
+					Password: "ciao",
+				},
+			},
+		},
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+	req := request{
+		Credentials: &credentials{
+			User:     "myUser",
+			Password: "cibo",
+		},
+		Transaction: []requestItem{
+			{
+				Query: "SELECT * FROM TBL",
+			},
+		},
+	}
+
+	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	require.Equal(t, custAuthError, code)
 }
 
 func TestBothValueAndBatchFail(t *testing.T) {
