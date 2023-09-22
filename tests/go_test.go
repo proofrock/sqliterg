@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -2447,3 +2448,41 @@ func TestBothValueAndBatchFail(t *testing.T) {
 // 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
 // }
 //
+
+func TestBigInteger(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL INT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	var test int64 = 9223372036854775807
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkRaw(map[string]interface{}{
+					"VAL": test,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, body, _ := call(t, "http://localhost:12321/test/exec", req)
+
+	println(body)
+	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
+}
