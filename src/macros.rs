@@ -158,7 +158,7 @@ pub async fn handler(
             Some(mex_ws) => {
                 if !process_creds(&token.token, &mex_ws.auth_token, &mex_ws.hashed_auth_token) {
                     return Response::new_err(
-                        401,
+                        mex_ws.auth_error_code,
                         -1,
                         format!(
                             "In database '{}', macro '{}': token mismatch",

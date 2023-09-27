@@ -114,19 +114,14 @@ fn process(
     dbconf: &DbConfig,
     auth_header: &Option<Authorization<Basic>>,
 ) -> Result<Response> {
-    if dbconf.auth.is_some()
-        && !process_auth(
-            dbconf.auth.as_ref().unwrap(),
-            conn,
-            &http_req.credentials,
-            auth_header,
-        )
-    {
-        return Ok(Response::new_err(
-            401,
-            -1,
-            "Authorization failed".to_string(),
-        ));
+    if let Some(ac) = &dbconf.auth {
+        if !process_auth(ac, conn, &http_req.credentials, auth_header) {
+            return Ok(Response::new_err(
+                ac.auth_error_code,
+                -1,
+                "Authorization failed".to_string(),
+            ));
+        }
     }
 
     let tx = conn.transaction()?;

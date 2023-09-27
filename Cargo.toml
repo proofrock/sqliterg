@@ -2,7 +2,7 @@
 authors = ["Germano Rizzo <oss /AT/ germanorizzo /DOT/ it>"]
 description = "A SQLite remote gateway - query SQLite via HTTP"
 name = "sqliterg"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 license = "Apache-2.0"
 
