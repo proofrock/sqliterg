@@ -1,4 +1,4 @@
-# Used by make docker-test-and-zbuild-all. See BUILDING.md
+# Used by make docker-zbuild-linux. See BUILDING.md
 
 FROM rust:latest as build
 

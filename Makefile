@@ -24,7 +24,10 @@ build-static:
 	rm -rf bin
 	- mkdir bin
 	bash -c "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target `uname -m`-unknown-linux-gnu"
-	bash -c "tar czf bin/sqliterg-v0.0.2-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+	bash -c "tar czf bin/sqliterg-v0.0.2-linux-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+
+# build-win:
+#     cargo build --release
 
 build-all:
 	rm -rf bin
@@ -51,10 +54,11 @@ docker:
 	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-aarch64
 	docker manifest push germanorizzo/sqliterg:latest
 
-docker-test-and-zbuild-all:
+docker-zbuild-linux:
 	- mkdir bin
 	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
 	docker buildx build --no-cache --platform linux/amd64 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
 	docker buildx build --no-cache --platform linux/arm64 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
 	# Doesn't work. armv7-unknown-linux-gnueabihf must be used. Anyway, for now ARMv7 is out of scope.
 	# docker buildx build --no-cache --platform linux/arm/v7 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
+
