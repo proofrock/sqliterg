@@ -43,13 +43,12 @@ lint:
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
 	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.0.2-x86_64 --push .
-	docker buildx build --no-cache --platform linux/arm/v7 -t germanorizzo/sqliterg:v0.0.2-arm --push .
 	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.0.2-aarch64 --push .
 	- docker manifest rm germanorizzo/sqliterg:v0.0.2
-	docker manifest create germanorizzo/sqliterg:v0.0.2 germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-arm germanorizzo/sqliterg:v0.0.2-aarch64
+	docker manifest create germanorizzo/sqliterg:v0.0.2 germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-aarch64
 	docker manifest push germanorizzo/sqliterg:v0.0.2
 	- docker manifest rm germanorizzo/sqliterg:latest
-	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-arm germanorizzo/sqliterg:v0.0.2-aarch64
+	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-aarch64
 	docker manifest push germanorizzo/sqliterg:latest
 
 docker-test-and-zbuild-all:
