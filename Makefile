@@ -20,11 +20,17 @@ build-debug:
 build:
 	cargo build --release
 
+build-static:
+	rm -rf bin
+	- mkdir bin
+	bash -c "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target `uname -m`-unknown-linux-gnu"
+	bash -c "tar czf bin/sqliterg-v0.0.2-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+
 build-all:
 	rm -rf bin
 	- mkdir bin
 	bash -c 'cross build --target `uname -m`-unknown-linux-musl --release'
-	bash -c 'tar cjf bin/sqliterg-v0.0.0-`uname -m`-musl-bundled.tar.gz -C target/`uname -m`-unknown-linux-musl/release/ sqliterg'
+	bash -c 'tar czf bin/sqliterg-v0.0.2-`uname -m`-musl-bundled.tar.gz -C target/`uname -m`-unknown-linux-musl/release/ sqliterg'
 
 update:
 	cargo update
@@ -36,16 +42,20 @@ lint:
 
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
-	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.0.0-x86_64 --push .
-	docker buildx build --no-cache --platform linux/arm/v7 -t germanorizzo/sqliterg:v0.0.0-arm --push .
-	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.0.0-aarch64 --push .
-	- docker manifest rm germanorizzo/sqliterg:v0.0.0
-	docker manifest create germanorizzo/sqliterg:v0.0.0 germanorizzo/sqliterg:v0.0.0-x86_64 germanorizzo/sqliterg:v0.0.0-arm germanorizzo/sqliterg:v0.0.0-aarch64
-	docker manifest push germanorizzo/sqliterg:v0.0.0
+	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.0.2-x86_64 --push .
+	docker buildx build --no-cache --platform linux/arm/v7 -t germanorizzo/sqliterg:v0.0.2-arm --push .
+	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.0.2-aarch64 --push .
+	- docker manifest rm germanorizzo/sqliterg:v0.0.2
+	docker manifest create germanorizzo/sqliterg:v0.0.2 germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-arm germanorizzo/sqliterg:v0.0.2-aarch64
+	docker manifest push germanorizzo/sqliterg:v0.0.2
 	- docker manifest rm germanorizzo/sqliterg:latest
-	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.0-x86_64 germanorizzo/sqliterg:v0.0.0-arm germanorizzo/sqliterg:v0.0.0-aarch64
+	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-arm germanorizzo/sqliterg:v0.0.2-aarch64
 	docker manifest push germanorizzo/sqliterg:latest
 
 docker-test-and-zbuild-all:
 	- mkdir bin
-	docker buildx build -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
+	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
+	docker buildx build --no-cache --platform linux/amd64 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
+	docker buildx build --no-cache --platform linux/arm64 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
+	# Doesn't work. armv7-unknown-linux-gnueabihf must be used. Anyway, for now ARMv7 is out of scope.
+	# docker buildx build --no-cache --platform linux/arm/v7 -f Dockerfile.binaries --target export -t tmp_binaries_build . --output bin
