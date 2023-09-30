@@ -42,6 +42,8 @@ useOnlyStoredStatements: false
 macros:
   # ID of the macro
   - id: M1
+    # Allow to execute out of a transaction, e.g. for VACUUM
+    disableTransaction: false
     # Which statements it must execute (in a transaction). Stored Statements references can be used.
     statements:
       - CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)

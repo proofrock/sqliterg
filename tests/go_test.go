@@ -2483,6 +2483,32 @@ func TestBigInteger(t *testing.T) {
 
 	_, body, _ := call(t, "http://localhost:12321/test/exec", req)
 
-	println(body)
 	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
+}
+
+func TestOutOfTransactionMacro(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id:                 "M1",
+				DisableTransaction: &TRUE,
+				Statements: []string{
+					"VACUUM",
+				},
+				Execution: execution{
+					WebService: &webService{},
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, res, _ := call(t, "http://localhost:12321/test/macro/M1", req)
+
+	require.Equal(t, http.StatusOK, code, res)
 }

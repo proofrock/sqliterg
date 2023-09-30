@@ -1,4 +1,3 @@
-- Manage VACUUM
 - Comments
 - Documentation
 - Cross-compile - add to README
@@ -8,7 +7,7 @@
 # To doc
 
 - A macro's statements are executed in a transaction
-- Init macros and startup macros are executed in a general wrapper transaction, to be able to revert them
+- Init macros and startup macros are executed each in its own transaction
 - If an init macro fails, the db is deleted
 - If both password and hashedPassword are specified, password "wins"
 - If there's a Values and a ValuesBatch, it gives an error

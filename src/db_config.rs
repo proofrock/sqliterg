@@ -84,6 +84,9 @@ pub struct ExecutionMode {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Macro {
     pub id: String,
+    #[serde(rename = "disableTransaction")]
+    #[serde(default = "default_as_false")]
+    pub disable_transaction: bool,
     pub statements: Vec<String>,
     pub execution: ExecutionMode,
 }
