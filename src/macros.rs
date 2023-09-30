@@ -183,7 +183,7 @@ pub async fn handler(
                 404,
                 -1,
                 format!(
-                    "In database '{}', macro '{}' doesn't have a backup.execution node",
+                    "In database '{}', macro '{}' doesn't have an execution node",
                     db_name, macro_name
                 ),
             ),
