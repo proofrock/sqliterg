@@ -27,7 +27,7 @@ use actix_cors::Cors;
 use actix_files::Files;
 use actix_web::{
     guard,
-    web::{post, scope, Data},
+    web::{route, scope, Data},
     App, HttpServer, Scope,
 };
 use rusqlite::Connection;
@@ -82,10 +82,32 @@ async fn main() -> std::io::Result<()> {
             let scop: Scope = scope(format!("/{}", db_name.to_owned()).deref())
                 .app_data(Data::new(db_name.to_owned()))
                 .app_data(Data::new(db_conf.to_owned()))
-                .guard(guard::Header("content-type", "application/json"))
-                .route("", post().to(logic::handler))
-                .route("/backup", post().to(backup::handler))
-                .route("/macro/{macro_name}", post().to(macros::handler));
+                .route(
+                    "",
+                    route()
+                        .guard(guard::Post())
+                        .guard(guard::Header("content-type", "application/json"))
+                        .to(logic::handler),
+                )
+                .route(
+                    "/macro/{macro_name}",
+                    route()
+                        .guard(
+                            guard::Any(guard::Get()).or(guard::All(guard::Post())
+                                .and(guard::Header("content-type", "application/json"))),
+                        )
+                        .to(macros::handler),
+                )
+                .route(
+                    "/backup",
+                    route()
+                        .guard(
+                            guard::Any(guard::Get()).or(guard::All(guard::Post())
+                                .and(guard::Header("content-type", "application/json"))),
+                        )
+                        .to(backup::handler),
+                );
+
             match &db_conf.conf.cors_origin {
                 Some(orig) => {
                     let mut cors = Cors::default().allowed_methods(vec!["POST"]);
