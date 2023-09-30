@@ -54,6 +54,11 @@ docker:
 	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.0.2-x86_64 germanorizzo/sqliterg:v0.0.2-aarch64
 	docker manifest push germanorizzo/sqliterg:latest
 
+docker-edge:
+	# in Cargo.toml, set 'version = "0.x.999"' where x is the current minor
+	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
+	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:edge --push .
+
 docker-zbuild-linux:
 	- mkdir bin
 	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
