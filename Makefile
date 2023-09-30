@@ -44,7 +44,7 @@ lint:
 	cargo clippy 2> clippy_results.txt
 
 docker:
-	docker run --privileged --rm tonistiigi/binfmt --install arm64,arm
+	docker run --privileged --rm tonistiigi/binfmt --install arm64
 	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.0.2-x86_64 --push .
 	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.0.2-aarch64 --push .
 	- docker manifest rm germanorizzo/sqliterg:v0.0.2
