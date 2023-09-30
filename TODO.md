@@ -18,7 +18,8 @@
   - 409: mismatch with configuration (e.g. reference a stored statement that it's not there)
   - 400: request is "wrong"
 
-# Test
+# Test/fix
 
-- CORS
-- ~
+- CORS doesn't really work
+- macros and backups are callable only with POST
+- when calling e.g. the main endpoint w/o Content-Type, the error returned is 404

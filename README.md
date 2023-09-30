@@ -12,7 +12,7 @@ As a quick example, after launching
 sqliterg --db mydatabase.db
 ```
 
-It's possible to make a POST call to `http://localhost:12321/mydatabase/exec`, e.g. with the following body:
+It's possible to make a POST call to `http://localhost:12321/mydatabase`, e.g. with the following body:
 
 ```json
 {

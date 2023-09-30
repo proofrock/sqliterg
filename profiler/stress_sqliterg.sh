@@ -2,7 +2,7 @@
 
 cd "$(dirname "$0")"
 
-URL="http://localhost:12321/test/exec"
+URL="http://localhost:12321/test"
 REQUESTS=20000
 
 mkdir environment/backup

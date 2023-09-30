@@ -1,4 +1,4 @@
-# Main endpoint for requests is http://<host>:<port>/<db_name>/exec
+# Main endpoint for requests is http://<host>:<port>/<db_name>
 
 # If present, "auth" defines the authentication for this database
 auth:

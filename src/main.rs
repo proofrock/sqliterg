@@ -83,7 +83,7 @@ async fn main() -> std::io::Result<()> {
                 .app_data(Data::new(db_name.to_owned()))
                 .app_data(Data::new(db_conf.to_owned()))
                 .guard(guard::Header("content-type", "application/json"))
-                .route("/exec", post().to(logic::handler))
+                .route("", post().to(logic::handler))
                 .route("/backup", post().to(backup::handler))
                 .route("/macro/{macro_name}", post().to(macros::handler));
             match &db_conf.conf.cors_origin {
