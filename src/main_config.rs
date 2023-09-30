@@ -84,6 +84,10 @@ fn compose_single_db(
         parse_dbconf(yaml).unwrap_or_else(|e| abort(format!("parsing YAML {}: {}", yaml, e)))
     };
 
+    if let Some(orig) = &dbconf.cors_origin {
+        println!("  - allowed CORS origin: {}", orig);
+    }
+
     if let Some(b) = &mut dbconf.backup {
         assert(
             b.num_files > 0,

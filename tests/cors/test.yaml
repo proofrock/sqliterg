@@ -1,0 +1,6 @@
+corsOrigin: "*"
+auth:
+  mode: HTTP_BASIC
+  byCredentials:
+    - user: user
+      password: ciao

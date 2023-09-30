@@ -17,7 +17,3 @@
   - 500: error from SQLite
   - 409: mismatch with configuration (e.g. reference a stored statement that it's not there)
   - 400: request is "wrong"
-
-# Test/fix
-
-- CORS doesn't really work

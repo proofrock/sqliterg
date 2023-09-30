@@ -1,0 +1,35 @@
+<html>
+
+<body>
+    <script>
+        const CALL = async function (json) {
+            let callObj = {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Basic " + btoa("user:ciao"),
+                },
+                body: JSON.stringify(json),
+            };
+
+            const ret = await fetch("http://localhost:12321/test", callObj);
+            const retJson = await ret.json();
+            retJson.status = ret.status;
+            return retJson;
+        };
+
+        const req = {
+            transaction: [{
+                query: "SELECT 1",
+            }]
+        };
+
+        setTimeout(async () => {
+            const res = await CALL(req);
+
+            console.log(res);
+        }, 0);
+    </script>
+</body>
+
+</html>

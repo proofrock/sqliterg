@@ -42,7 +42,7 @@ mod macros;
 pub mod main_config;
 pub mod req_res;
 
-use crate::{commandline::parse_cli, main_config::compose_db_map};
+use crate::{commandline::parse_cli, db_config::AuthMode, main_config::compose_db_map};
 
 pub const CURRENT_PROTO_VERSION: u8 = 1;
 
@@ -110,7 +110,17 @@ async fn main() -> std::io::Result<()> {
 
             match &db_conf.conf.cors_origin {
                 Some(orig) => {
-                    let mut cors = Cors::default().allowed_methods(vec!["POST"]);
+                    let mut cors = Cors::default()
+                        .allowed_methods(vec!["POST"])
+                        .allowed_header("content-type");
+                    if db_conf.conf.auth.is_some()
+                        && matches!(
+                            db_conf.conf.auth.as_ref().unwrap().mode,
+                            AuthMode::HttpBasic
+                        )
+                    {
+                        cors = cors.allowed_header("authorization");
+                    }
                     if orig == "*" {
                         cors = cors.allow_any_origin();
                     } else {
@@ -125,6 +135,7 @@ async fn main() -> std::io::Result<()> {
         if let Some(dir) = dir {
             a = a.service(Files::new("/", dir).index_file(index_file));
         };
+
         a
     };
 

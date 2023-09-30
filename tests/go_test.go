@@ -2407,47 +2407,61 @@ func TestBothValueAndBatchFail(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, code)
 }
 
-// func TestCORSOk(t *testing.T) {
-// 	cfg := db{
-// 		CORSOrigin: "*",
-// 	}
-//
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
-// func TestCORSKO(t *testing.T) {
-// 	defer setupTest(t, nil, false, "--mem-db", "test")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
-// func TestCORSOk2(t *testing.T) {
-// 	cfg := db{
-// 		CORSOrigin: "http://mydomain.com",
-// 	}
-//
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
+func TestCORSOk(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "*",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSKO(t *testing.T) {
+	defer setupTest(t, nil, false, "--mem-db", "test")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSOk2(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "http://mydomain.com",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSKO2(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "http://mydomainNOT.com",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
 
 func TestBigInteger(t *testing.T) {
 	cfg := db{
