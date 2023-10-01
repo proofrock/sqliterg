@@ -11,7 +11,7 @@ WORKDIR /abc
 COPY . .
 
 # RUN make test
-RUN make build-static
+RUN make build-static-nostatic
 
 # Now copy it into our base image.
 FROM scratch AS export

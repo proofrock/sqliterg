@@ -20,14 +20,16 @@ build-debug:
 build:
 	cargo build --release
 
-build-static:
+build-static-nostatic:
 	rm -rf bin
 	- mkdir bin
 	bash -c "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target `uname -m`-unknown-linux-gnu"
 	bash -c "tar czf bin/sqliterg-v0.0.2-linux-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
-
-# build-win:
-#     cargo build --release
+	cp Cargo.toml Cargo.toml.orig
+	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
+	bash -c "cargo build --release --target `uname -m`-unknown-linux-gnu"
+	bash -c "tar czf bin/sqliterg-v0.0.2-linux-`uname -m`-dynamic.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+	mv Cargo.toml.orig Cargo.toml
 
 build-all:
 	rm -rf bin
