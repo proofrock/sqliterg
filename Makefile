@@ -45,11 +45,18 @@ build-static-nostatic:
 	bash -c "tar czf bin/sqliterg-v0.0.2-linux-`uname -m`-dynamic.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
 	mv Cargo.toml.orig Cargo.toml
 
-build-all:
+build-macos:
 	rm -rf bin
 	- mkdir bin
-	bash -c 'cross build --target `uname -m`-unknown-linux-musl --release'
-	bash -c 'tar czf bin/sqliterg-v0.0.2-`uname -m`-musl-bundled.tar.gz -C target/`uname -m`-unknown-linux-musl/release/ sqliterg'
+	cargo build --release
+	tar czf bin/sqliterg-v0.0.2-macos-x86_64-bundled.tar.gz -C target/release/ sqliterg
+	cargo build --release --target aarch64-apple-darwin
+	tar czf bin/sqliterg-v0.0.2-macos-aarch64-bundled.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg
+	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
+	cargo build --release
+	tar czf bin/sqliterg-v0.0.2-macos-x86_64-dynamic.tar.gz -C target/release/ sqliterg
+	cargo build --release --target aarch64-apple-darwin
+	tar czf bin/sqliterg-v0.0.2-macos-aarch64-dynamic.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg	
 
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64
