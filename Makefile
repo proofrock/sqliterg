@@ -1,5 +1,19 @@
 .PHONY: test
 
+clean:
+	cargo clean
+	rm -rf bin
+	docker image prune -af
+	docker builder prune -af
+
+update:
+	cargo update
+	cd tests && go get -u
+	cd tests && go mod tidy
+
+lint:
+	cargo clippy 2> clippy_results.txt
+
 profile:
 	bash profiler/stress_sqliterg.sh
 	bash profiler/stress_ws4sqlite.sh
@@ -36,14 +50,6 @@ build-all:
 	- mkdir bin
 	bash -c 'cross build --target `uname -m`-unknown-linux-musl --release'
 	bash -c 'tar czf bin/sqliterg-v0.0.2-`uname -m`-musl-bundled.tar.gz -C target/`uname -m`-unknown-linux-musl/release/ sqliterg'
-
-update:
-	cargo update
-	cd tests && go get -u
-	cd tests && go mod tidy
-
-lint:
-	cargo clippy 2> clippy_results.txt
 
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64
