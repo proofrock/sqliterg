@@ -56,7 +56,34 @@ pub fn resolve_macros(
     ret
 }
 
+fn exec_macro_single_notrx(macr: &Macro, conn: &mut Connection) -> Response {
+    let mut ret = vec![];
+    for (i, statement) in macr.statements.iter().enumerate() {
+        let changed_rows = conn.execute(statement, []);
+        match changed_rows {
+            Ok(cr) => {
+                ret.push(ResponseItem {
+                    success: true,
+                    error: None,
+                    result_set: None,
+                    rows_updated: Some(cr),
+                    rows_updated_batch: None,
+                });
+            }
+            Err(e) => {
+                return Response::new_err(500, i as isize, e.to_string());
+            }
+        }
+    }
+
+    Response::new_ok(ret)
+}
+
 fn exec_macro_single(macr: &Macro, conn: &mut Connection) -> Response {
+    if macr.disable_transaction {
+        return exec_macro_single_notrx(macr, conn);
+    }
+
     let tx = match conn.transaction() {
         Ok(tx) => tx,
         Err(_) => {
@@ -102,39 +129,18 @@ pub fn bootstrap_db_macros(
 ) -> Result<()> {
     match &db_conf.macros {
         Some(macros) => {
-            let tx = match conn.transaction() {
-                Ok(tx) => tx,
-                Err(_) => return Result::Err(eyre!("Transaction open failed")),
-            };
-
             for macr in macros {
                 if macr.execution.on_startup || (is_new_db && macr.execution.on_create) {
-                    for (i, statement) in macr.statements.iter().enumerate() {
-                        match tx.execute(statement, []) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                let _ = tx.rollback();
-                                return Result::Err(eyre!(
-                                    "In macro '{}' of db '{}', index {}: {}",
-                                    macr.id,
-                                    db_name,
-                                    i,
-                                    e
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-
-            match tx.commit() {
-                Ok(_) => (),
-                Err(e) => {
-                    return Result::Err(eyre!(
-                        "Commit failed for startup macros in db '{}': {}",
-                        db_name,
-                        e.to_string()
-                    ))
+                    let res = exec_macro_single(macr, conn);
+                    if !res.success {
+                        return Result::Err(eyre!(
+                            "In macro '{}' of db '{}', index {}: {}",
+                            macr.id,
+                            db_name,
+                            res.req_idx.unwrap_or(-1),
+                            res.message.unwrap_or("unknown error".to_string())
+                        ));
+                    };
                 }
             }
         }
@@ -177,7 +183,7 @@ pub async fn handler(
                 404,
                 -1,
                 format!(
-                    "In database '{}', macro '{}' doesn't have a backup.execution node",
+                    "In database '{}', macro '{}' doesn't have an execution node",
                     db_name, macro_name
                 ),
             ),

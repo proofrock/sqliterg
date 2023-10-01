@@ -169,7 +169,7 @@ func TestFileServer(t *testing.T) {
 func TestMemDbEmpty(t *testing.T) {
 	defer setupTest(t, nil, false, "--mem-db", "test")(true)
 
-	code, _, obj := call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
+	code, _, obj := call(t, "http://localhost:12321/test", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
 
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, 1, len(obj.Results))
@@ -182,14 +182,14 @@ func TestMemDbEmpty(t *testing.T) {
 func TestMemDbEmptyAnotherPort(t *testing.T) {
 	defer setupTest(t, nil, false, "--mem-db", "test", "--port", "32123")(true)
 
-	code, _, _ := call(t, "http://localhost:32123/test/exec", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
+	code, _, _ := call(t, "http://localhost:32123/test", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
 	require.Equal(t, http.StatusOK, code)
 }
 
 func TestMemDbEmptyAnotherBoundIP(t *testing.T) {
 	defer setupTest(t, nil, false, "--mem-db", "test", "--bind-host", "1.1.1.1")(true)
 
-	post, err := http.NewRequest("POST", "http://localhost:12321/test/exec", bytes.NewBuffer([]byte{}))
+	post, err := http.NewRequest("POST", "http://localhost:12321/test", bytes.NewBuffer([]byte{}))
 	require.NoError(t, err)
 	post.Header.Add("Content-Type", "application/json")
 
@@ -200,7 +200,7 @@ func TestMemDbEmptyAnotherBoundIP(t *testing.T) {
 func TestStatementQueryMismatch(t *testing.T) {
 	defer setupTest(t, nil, false, "--mem-db", "test")(true)
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Statement: "SELECT 1"}}})
+	code, _, _ := call(t, "http://localhost:12321/test", request{Transaction: []requestItem{{Statement: "SELECT 1"}}})
 
 	require.Equal(t, http.StatusInternalServerError, code)
 }
@@ -210,7 +210,7 @@ func TestFileDbEmpty(t *testing.T) {
 
 	require.FileExists(t, "env/test.db")
 
-	code, _, obj := call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
+	code, _, obj := call(t, "http://localhost:12321/test", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
 
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, 1, len(obj.Results))
@@ -225,7 +225,7 @@ func TestAll3(t *testing.T) {
 
 	require.FileExists(t, "env/test.db")
 
-	code, _, obj := call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
+	code, _, obj := call(t, "http://localhost:12321/test", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
 
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, 1, len(obj.Results))
@@ -234,7 +234,7 @@ func TestAll3(t *testing.T) {
 	require.Equal(t, 1, len(obj.Results[0].ResultSet[0]))
 	require.Equal(t, 1, int(obj.Results[0].ResultSet[0]["1"].(float64)))
 
-	code, _, obj = call(t, "http://localhost:12321/test/exec", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
+	code, _, obj = call(t, "http://localhost:12321/test", request{Transaction: []requestItem{{Query: "SELECT 1"}}})
 
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, 1, len(obj.Results))
@@ -256,7 +256,7 @@ func TestCreate(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
@@ -275,7 +275,7 @@ func TestFail(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusInternalServerError, code)
 }
@@ -325,7 +325,7 @@ func TestTx(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -354,7 +354,7 @@ func TestTxRollback(t *testing.T) {
 		},
 	}
 
-	call(t, "http://localhost:12321/test/exec", req)
+	call(t, "http://localhost:12321/test", req)
 
 	req = request{
 		Transaction: []requestItem{
@@ -367,7 +367,7 @@ func TestTxRollback(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusInternalServerError, code)
 
@@ -379,7 +379,7 @@ func TestTxRollback(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -402,7 +402,7 @@ func TestStoredQuery(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -426,7 +426,7 @@ func TestConcurrent(t *testing.T) {
 		},
 	}
 
-	call(t, "http://localhost:12321/test/exec", req)
+	call(t, "http://localhost:12321/test", req)
 
 	req = request{
 		Transaction: []requestItem{
@@ -477,7 +477,7 @@ func TestConcurrent(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func(t *testing.T) {
 			defer wg.Done()
-			code, _, res := call(t, "http://localhost:12321/test/exec", req)
+			code, _, res := call(t, "http://localhost:12321/test", req)
 
 			require.Equal(t, http.StatusOK, code)
 
@@ -515,7 +515,7 @@ func TestFailRO(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusInternalServerError, code)
 }
@@ -531,7 +531,7 @@ func TestOkRO(t *testing.T) {
 		},
 	}
 
-	call(t, "http://localhost:12321/test/exec", req)
+	call(t, "http://localhost:12321/test", req)
 
 	closer(false)
 
@@ -549,7 +549,7 @@ func TestOkRO(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -570,7 +570,7 @@ func TestFailSQO(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusConflict, code)
 }
@@ -591,7 +591,7 @@ func TestOkSQO(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
@@ -642,7 +642,7 @@ func TestTxMem(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -676,7 +676,7 @@ func TestStoredQueryMem(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -700,7 +700,7 @@ func TestInitMacro(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -742,7 +742,7 @@ func TestStartupMacroIsNotCreate(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -750,7 +750,7 @@ func TestStartupMacroIsNotCreate(t *testing.T) {
 
 	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -772,7 +772,7 @@ func TestStartupAndCreateMacroIsJustOne(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -805,7 +805,7 @@ func TestInitMacroReferencingStoredStatement(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -856,7 +856,7 @@ func TestPeriodicMacro(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -909,7 +909,7 @@ func TestCallableMacro(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -964,7 +964,7 @@ func TestCallableMacroNormalPassword(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1014,7 +1014,7 @@ func TestCallableMacroHashedPassword(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1356,7 +1356,7 @@ func TestFailROButMacroCanModify(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusInternalServerError, code)
 }
@@ -1388,7 +1388,7 @@ func TestFailROButMacroCanModify2(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusInternalServerError, code)
 }
@@ -1403,12 +1403,12 @@ func TestDbSegregationMem(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test1/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test1", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
 
-	code, _, res = call(t, "http://localhost:12321/test2/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test2", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
@@ -1424,12 +1424,12 @@ func TestDbSegregationFile(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test1/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test1", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
 
-	code, _, res = call(t, "http://localhost:12321/test2/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test2", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
@@ -1445,12 +1445,12 @@ func TestDbSegregationFileAndMem(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test1/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test1", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
 
-	code, _, res = call(t, "http://localhost:12321/test2/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test2", req)
 
 	require.Equal(t, http.StatusOK, code)
 	require.True(t, res.Results[0].Success)
@@ -1526,7 +1526,7 @@ func TestProfilerPayloadOnFile(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1548,7 +1548,7 @@ func TestProfilerPayloadOnFile(t *testing.T) {
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
-	code, _, res = call(t, "http://localhost:12321/test/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1641,7 +1641,7 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1663,7 +1663,7 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
-	code, _, res = call(t, "http://localhost:12321/test/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1757,7 +1757,7 @@ func TestJournalMode(t *testing.T) {
 		},
 	}
 
-	code, _, res := call(t, "http://localhost:12321/test/exec", req)
+	code, _, res := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1779,7 +1779,7 @@ func TestJournalMode(t *testing.T) {
 	require.Equal(t, 1, len(res.Results[6].ResultSet))
 	require.Equal(t, 4, *res.Results[7].RowsUpdated)
 
-	code, _, res = call(t, "http://localhost:12321/test/exec", req)
+	code, _, res = call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 
@@ -1816,7 +1816,7 @@ func TestExplicitYAML(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -1858,7 +1858,7 @@ func TestAuthKOInlinePlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -1900,7 +1900,7 @@ func TestAuthOkInlinePlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -1942,7 +1942,7 @@ func TestAuthKOInlinePlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -1984,7 +1984,7 @@ func TestAuthOkInlineHashByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -2026,7 +2026,7 @@ func TestAuthKOInlineHashByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -2062,7 +2062,7 @@ func TestAuthOkHttpPlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "ciao")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myUser", "ciao")
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -2098,7 +2098,7 @@ func TestAuthKOHttpPlaintextByQuery(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "cibo")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myUser", "cibo")
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -2136,7 +2136,7 @@ func TestAuthOkHttpPlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "ciao")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myUser", "ciao")
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -2174,7 +2174,7 @@ func TestAuthKOHttpPlaintextByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myUser", "cibo")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myUser", "cibo")
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -2216,7 +2216,7 @@ func TestAuthOkHttpHashByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myuser", "ciao")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myuser", "ciao")
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -2258,7 +2258,7 @@ func TestAuthKOHttpHashByCreds(t *testing.T) {
 		},
 	}
 
-	code, _, _ := callWithAuth(t, "http://localhost:12321/test/exec", req, "myuser", "cibo")
+	code, _, _ := callWithAuth(t, "http://localhost:12321/test", req, "myuser", "cibo")
 
 	require.Equal(t, http.StatusUnauthorized, code)
 }
@@ -2301,7 +2301,7 @@ func TestAuthWhenBothPlaintextAndHash(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusOK, code)
 }
@@ -2368,7 +2368,7 @@ func TestAuthKOCustomErrorCode(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, custAuthError, code)
 }
@@ -2402,52 +2402,66 @@ func TestBothValueAndBatchFail(t *testing.T) {
 		},
 	}
 
-	code, _, _ := call(t, "http://localhost:12321/test/exec", req)
+	code, _, _ := call(t, "http://localhost:12321/test", req)
 
 	require.Equal(t, http.StatusBadRequest, code)
 }
 
-// func TestCORSOk(t *testing.T) {
-// 	cfg := db{
-// 		CORSOrigin: "*",
-// 	}
-//
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
-// func TestCORSKO(t *testing.T) {
-// 	defer setupTest(t, nil, false, "--mem-db", "test")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
-// func TestCORSOk2(t *testing.T) {
-// 	cfg := db{
-// 		CORSOrigin: "http://mydomain.com",
-// 	}
-//
-// 	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-//
-// 	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test/exec", nil)
-// 	corsReq.Header.Add("Access-Control-Request-Method", "GET")
-// 	corsReq.Header.Add("Origin", "http://mydomain.com")
-//
-// 	res, _ := http.DefaultClient.Do(corsReq)
-// 	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
-// }
-//
+func TestCORSOk(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "*",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSKO(t *testing.T) {
+	defer setupTest(t, nil, false, "--mem-db", "test")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSOk2(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "http://mydomain.com",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.True(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
+
+func TestCORSKO2(t *testing.T) {
+	cfg := db{
+		CORSOrigin: "http://mydomainNOT.com",
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	corsReq, _ := http.NewRequest("OPTIONS", "http://localhost:12321/test", nil)
+	corsReq.Header.Add("Access-Control-Request-Method", "POST")
+	corsReq.Header.Add("Origin", "http://mydomain.com")
+
+	res, _ := http.DefaultClient.Do(corsReq)
+	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
+}
 
 func TestBigInteger(t *testing.T) {
 	cfg := db{
@@ -2481,8 +2495,34 @@ func TestBigInteger(t *testing.T) {
 		},
 	}
 
-	_, body, _ := call(t, "http://localhost:12321/test/exec", req)
+	_, body, _ := call(t, "http://localhost:12321/test", req)
 
-	println(body)
 	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
+}
+
+func TestOutOfTransactionMacro(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id:                 "M1",
+				DisableTransaction: &TRUE,
+				Statements: []string{
+					"VACUUM",
+				},
+				Execution: execution{
+					WebService: &webService{},
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
+
+	req := request{
+		Transaction: []requestItem{},
+	}
+
+	code, res, _ := call(t, "http://localhost:12321/test/macro/M1", req)
+
+	require.Equal(t, http.StatusOK, code, res)
 }

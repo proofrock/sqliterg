@@ -1,4 +1,4 @@
-# Main endpoint for requests is http://<host>:<port>/<db_name>/exec
+# Main endpoint for requests is http://<host>:<port>/<db_name>
 
 # If present, "auth" defines the authentication for this database
 auth:
@@ -42,6 +42,8 @@ useOnlyStoredStatements: false
 macros:
   # ID of the macro
   - id: M1
+    # Allow to execute out of a transaction, e.g. for VACUUM
+    disableTransaction: false
     # Which statements it must execute (in a transaction). Stored Statements references can be used.
     statements:
       - CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)

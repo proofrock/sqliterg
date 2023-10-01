@@ -1,0 +1,17 @@
+# Used by make docker-zbuild-linux. See BUILDING.md
+
+FROM rust:latest as build
+
+RUN apt-get update
+RUN apt-get full-upgrade -y
+RUN apt-get install -y zip
+# RUN cargo install -f cross
+
+WORKDIR /abc
+COPY . .
+
+RUN make build-static-nostatic
+
+# Now copy it into our base image.
+FROM scratch AS export
+COPY --from=build /abc/bin/* .

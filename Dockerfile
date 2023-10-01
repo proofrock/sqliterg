@@ -1,19 +1,13 @@
-# FROM rust:latest as build
-# 
-# WORKDIR /app
-# COPY . .
-# 
-# RUN cargo build
-# RUN pwd
-# RUN ls -al target/debug
-# --release
-
 FROM alpine:latest as build
 
-RUN apk add --no-cache rust cargo sqlite-libs sqlite-dev
+RUN apk add --no-cache rust cargo sqlite-libs sqlite-dev sed
 
 COPY . /build
 WORKDIR /build
+
+RUN cp Cargo.toml Cargo.toml.orig
+RUN sed 's/^rusqlite.*$/rusqlite = { version = "~0", features = ["serde_json"] }/' Cargo.toml.orig > Cargo.toml
+
 RUN ["cargo", "build", "--release"]
 
 # Now copy it into our base image.

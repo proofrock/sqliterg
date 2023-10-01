@@ -55,9 +55,10 @@ type execution struct {
 }
 
 type macro struct {
-	Id         string    `yaml:"id,omitempty"`
-	Statements []string  `yaml:"statements,omitempty"`
-	Execution  execution `yaml:"execution,omitempty"`
+	Id                 string    `yaml:"id,omitempty"`
+	DisableTransaction *bool     `yaml:"disableTransaction,omitempty"`
+	Statements         []string  `yaml:"statements,omitempty"`
+	Execution          execution `yaml:"execution,omitempty"`
 }
 
 type backup struct {
