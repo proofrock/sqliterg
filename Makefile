@@ -3,8 +3,8 @@
 clean:
 	cargo clean
 	rm -rf bin
-	docker image prune -af
-	docker builder prune -af
+	- docker image prune -af
+	- docker builder prune -af
 
 update:
 	cargo update
@@ -52,11 +52,13 @@ build-macos:
 	tar czf bin/sqliterg-v0.17.0-macos-x86_64-bundled.tar.gz -C target/release/ sqliterg
 	cargo build --release --target aarch64-apple-darwin
 	tar czf bin/sqliterg-v0.17.0-macos-aarch64-bundled.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg
+	cp Cargo.toml Cargo.toml.orig
 	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
 	cargo build --release
 	tar czf bin/sqliterg-v0.17.0-macos-x86_64-dynamic.tar.gz -C target/release/ sqliterg
 	cargo build --release --target aarch64-apple-darwin
 	tar czf bin/sqliterg-v0.17.0-macos-aarch64-dynamic.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg	
+	mv Cargo.toml.orig Cargo.toml
 
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64
