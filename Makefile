@@ -5,6 +5,7 @@ clean:
 	rm -rf bin
 	- docker image prune -af
 	- docker builder prune -af
+	rm -f profiler/*.class
 
 update:
 	cargo update
