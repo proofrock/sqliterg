@@ -92,19 +92,13 @@ async fn main() -> std::io::Result<()> {
                 .route(
                     "/macro/{macro_name}",
                     route()
-                        .guard(
-                            guard::Any(guard::Get()).or(guard::All(guard::Post())
-                                .and(guard::Header("content-type", "application/json"))),
-                        )
+                        .guard(guard::Any(guard::Get()).or(guard::Post()))
                         .to(macros::handler),
                 )
                 .route(
                     "/backup",
                     route()
-                        .guard(
-                            guard::Any(guard::Get()).or(guard::All(guard::Post())
-                                .and(guard::Header("content-type", "application/json"))),
-                        )
+                        .guard(guard::Any(guard::Get()).or(guard::Post()))
                         .to(backup::handler),
                 );
 
