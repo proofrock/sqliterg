@@ -142,6 +142,13 @@ fn compose_single_db(
 
     let macros: HashMap<String, Macro> = resolve_macros(&mut dbconf, &stored_statements);
 
+    for macr in macros.values() {
+        assert(
+            !macr.statements.is_empty(),
+            format!("Macro '{}' does not have any statement", macr.id),
+        );
+    }
+
     if !macros.is_empty() {
         println!("  - {} macro(s) configured", macros.len());
         let count = count_macros(macros.to_owned());
