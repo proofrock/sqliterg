@@ -5,6 +5,7 @@ clean:
 	rm -rf bin
 	- docker image prune -af
 	- docker builder prune -af
+	rm -f profiler/*.class
 
 update:
 	cargo update
@@ -38,37 +39,37 @@ build-static-nostatic:
 	rm -rf bin
 	- mkdir bin
 	bash -c "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target `uname -m`-unknown-linux-gnu"
-	bash -c "tar czf bin/sqliterg-v0.17.0-linux-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+	bash -c "tar czf bin/sqliterg-v0.17.1-linux-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
 	cp Cargo.toml Cargo.toml.orig
 	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
 	bash -c "cargo build --release --target `uname -m`-unknown-linux-gnu"
-	bash -c "tar czf bin/sqliterg-v0.17.0-linux-`uname -m`-dynamic.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
+	bash -c "tar czf bin/sqliterg-v0.17.1-linux-`uname -m`-dynamic.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
 	mv Cargo.toml.orig Cargo.toml
 
 build-macos:
 	rm -rf bin
 	- mkdir bin
 	cargo build --release
-	tar czf bin/sqliterg-v0.17.0-macos-x86_64-bundled.tar.gz -C target/release/ sqliterg
+	tar czf bin/sqliterg-v0.17.1-macos-x86_64-bundled.tar.gz -C target/release/ sqliterg
 	cargo build --release --target aarch64-apple-darwin
-	tar czf bin/sqliterg-v0.17.0-macos-aarch64-bundled.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg
+	tar czf bin/sqliterg-v0.17.1-macos-aarch64-bundled.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg
 	cp Cargo.toml Cargo.toml.orig
 	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
 	cargo build --release
-	tar czf bin/sqliterg-v0.17.0-macos-x86_64-dynamic.tar.gz -C target/release/ sqliterg
+	tar czf bin/sqliterg-v0.17.1-macos-x86_64-dynamic.tar.gz -C target/release/ sqliterg
 	cargo build --release --target aarch64-apple-darwin
-	tar czf bin/sqliterg-v0.17.0-macos-aarch64-dynamic.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg	
+	tar czf bin/sqliterg-v0.17.1-macos-aarch64-dynamic.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg	
 	mv Cargo.toml.orig Cargo.toml
 
 docker:
 	docker run --privileged --rm tonistiigi/binfmt --install arm64
-	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.17.0-x86_64 --push .
-	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.17.0-aarch64 --push .
-	- docker manifest rm germanorizzo/sqliterg:v0.17.0
-	docker manifest create germanorizzo/sqliterg:v0.17.0 germanorizzo/sqliterg:v0.17.0-x86_64 germanorizzo/sqliterg:v0.17.0-aarch64
-	docker manifest push germanorizzo/sqliterg:v0.17.0
+	docker buildx build --no-cache --platform linux/amd64 -t germanorizzo/sqliterg:v0.17.1-x86_64 --push .
+	docker buildx build --no-cache --platform linux/arm64 -t germanorizzo/sqliterg:v0.17.1-aarch64 --push .
+	- docker manifest rm germanorizzo/sqliterg:v0.17.1
+	docker manifest create germanorizzo/sqliterg:v0.17.1 germanorizzo/sqliterg:v0.17.1-x86_64 germanorizzo/sqliterg:v0.17.1-aarch64
+	docker manifest push germanorizzo/sqliterg:v0.17.1
 	- docker manifest rm germanorizzo/sqliterg:latest
-	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.17.0-x86_64 germanorizzo/sqliterg:v0.17.0-aarch64
+	docker manifest create germanorizzo/sqliterg:latest germanorizzo/sqliterg:v0.17.1-x86_64 germanorizzo/sqliterg:v0.17.1-aarch64
 	docker manifest push germanorizzo/sqliterg:latest
 
 docker-edge:

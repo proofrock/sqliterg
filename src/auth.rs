@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::ops::DerefMut;
+
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
-use rusqlite::{named_params, Connection};
+use rusqlite::named_params;
 
 use crate::{
     commons::{equal_case_insensitive, sha256},
     db_config::Auth,
     db_config::{AuthMode, Credentials},
     req_res::ReqCredentials,
+    MUTEXES,
 };
 
 /// Given the provided password and the expected ones (unhashed and hashed), returns if
@@ -47,7 +50,11 @@ fn auth_by_credentials(user: String, password: String, creds: &Vec<Credentials>)
     false
 }
 
-fn auth_by_query(user: String, password: String, query: &str, conn: &mut Connection) -> bool {
+fn auth_by_query(user: String, password: String, query: &str, db_name: &str) -> bool {
+    let db_lock = MUTEXES.get().unwrap().get(db_name).unwrap();
+    let mut db_lock_guard = db_lock.lock().unwrap();
+    let conn = db_lock_guard.deref_mut();
+
     let res = conn.query_row(
         query,
         named_params! {":user": user, ":password":password},
@@ -58,9 +65,9 @@ fn auth_by_query(user: String, password: String, query: &str, conn: &mut Connect
 
 pub fn process_auth(
     auth_config: &Auth,
-    conn: &mut Connection,
     auth_inline: &Option<ReqCredentials>,
     auth_header: &Option<Authorization<Basic>>,
+    db_name: &str,
 ) -> bool {
     let (user, password) = match auth_config.mode {
         AuthMode::HttpBasic => match auth_header {
@@ -79,7 +86,7 @@ pub fn process_auth(
     match &auth_config.by_credentials {
         Some(creds) => auth_by_credentials(user, password, creds),
         None => match &auth_config.by_query {
-            Some(query) => auth_by_query(user, password, query, conn),
+            Some(query) => auth_by_query(user, password, query, db_name),
             None => false,
         },
     }

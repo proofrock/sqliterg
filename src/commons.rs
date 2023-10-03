@@ -54,6 +54,13 @@ pub fn is_dir(path: &String) -> bool {
     Path::new(path).is_dir()
 }
 
+pub fn is_file_in_directory(file_path: &str, dir_path: &str) -> bool {
+    let file_path = Path::new(file_path);
+    let dir_path = Path::new(dir_path);
+
+    file_path.starts_with(dir_path)
+}
+
 pub fn sha256(input: &String) -> String {
     let digest = {
         let mut context = Context::new(&SHA256);
