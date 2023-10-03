@@ -1399,7 +1399,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "sqliterg"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "actix-cors",
  "actix-files",
