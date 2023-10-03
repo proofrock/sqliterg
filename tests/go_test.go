@@ -42,6 +42,15 @@ func TestMain(m *testing.M) {
 
 var cmd *exec.Cmd
 
+func saveCfgToYaml(t *testing.T, cfg *db) {
+	os.Remove("env/test.yaml")
+
+	data, err := yaml.Marshal(cfg)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile("env/test.yaml", data, 0600))
+}
+
 func setupTest(t *testing.T, cfg *db, printOutput bool, argv ...string) func(bool) {
 	if cmd != nil {
 		cmd.Process.Kill()
@@ -49,12 +58,7 @@ func setupTest(t *testing.T, cfg *db, printOutput bool, argv ...string) func(boo
 	os.Mkdir("env/backups", 0700)
 
 	if cfg != nil {
-		os.Remove("env/test.yaml")
-
-		data, err := yaml.Marshal(cfg)
-		require.NoError(t, err)
-
-		require.NoError(t, os.WriteFile("env/test.yaml", data, 0600))
+		saveCfgToYaml(t, cfg)
 	}
 
 	cmd = exec.Command(COMMAND, argv...)
@@ -2525,4 +2529,22 @@ func TestOutOfTransactionMacro(t *testing.T) {
 	code, res, _ := call(t, "http://localhost:12321/test/macro/M1", req)
 
 	require.Equal(t, http.StatusOK, code, res)
+}
+
+func TestStartupBackupFailForSameDir(t *testing.T) {
+	cfg := db{
+		Backup: backup{
+			BackupDir: "env/",
+			NumFiles:  1,
+		},
+	}
+
+	saveCfgToYaml(t, &cfg)
+
+	cmd := exec.Command(COMMAND, "--db", "env/test.db")
+	defer os.Remove("env/test.db")
+	defer os.Remove("env/test.db-shm")
+	defer os.Remove("env/test.db-wal")
+	err := cmd.Run()
+	require.Error(t, err)
 }

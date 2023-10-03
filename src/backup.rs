@@ -26,7 +26,7 @@ use rusqlite::Connection;
 use crate::{
     auth::process_creds,
     commons::{abort, delete_old_files, file_exists},
-    db_config::{Backup, DbConfig},
+    db_config::Backup,
     main_config::Db,
     req_res::{Response, Token},
     MUTEXES,
@@ -119,82 +119,77 @@ pub async fn handler(
 
 pub fn bootstrap_backup(
     is_new_db: bool,
-    db_conf: &DbConfig,
+    bkp: &Backup,
     db_name: &String,
     db_path: &str,
     conn: &Connection,
 ) {
-    match &db_conf.backup {
-        Some(bkp) => {
-            let bex = &bkp.execution;
-            if bex.on_startup || (is_new_db && bex.on_create) {
-                let res = do_backup(bkp, db_path, conn);
-                if !res.success {
-                    abort(format!(
-                        "Backup of database '{}': {}",
-                        db_name,
-                        res.message.unwrap()
-                    ));
-                }
-            }
-            println!("  - backup configured");
-            if bex.on_create {
-                println!("    - performed on database creation");
-            }
-            if bex.on_startup {
-                println!("    - performed on server startup");
-            }
-            if bex.period > 0 {
-                println!("    - performed periodically");
-            }
-            if bex.web_service.is_some() {
-                println!("    - callable via web service");
-            }
+    let bkp = bkp.to_owned();
+    let bex = &bkp.execution;
+    if bex.on_startup || (is_new_db && bex.on_create) {
+        let res = do_backup(&bkp, db_path, conn);
+        if !res.success {
+            abort(format!(
+                "Backup of database '{}': {}",
+                db_name,
+                res.message.unwrap()
+            ));
         }
-        None => (),
+    }
+    println!("  - backup configured");
+    if bex.on_create {
+        println!("    - performed on database creation");
+    }
+    if bex.on_startup {
+        println!("    - performed on server startup");
+    }
+    if bex.period > 0 {
+        println!("    - performed periodically");
+    }
+    if bex.web_service.is_some() {
+        println!("    - callable via web service");
     }
 }
 
-pub fn periodic_backup(db_conf: DbConfig, db_name: String, db_path: String) {
-    if let Some(bkp) = db_conf.backup {
-        let period = bkp.execution.period;
-        let bkp_dir = bkp.backup_dir;
-        if period > 0 {
-            let period = period as u64 * 60;
-            spawn(async move {
-                let p = Duration::from_secs(period);
-                let first_start = Instant::now().checked_add(p).unwrap();
-                let mut interval = interval_at(first_start, p);
+pub fn periodic_backup(bkp: &Backup, db_name: String, db_path: String) {
+    let bkp = bkp.to_owned();
+    let period = bkp.execution.period;
+    let bkp_dir = bkp.backup_dir;
+    if period > 0 {
+        let period = period as u64 * 60;
+        spawn(async move {
+            let p = Duration::from_secs(period);
+            let first_start = Instant::now().checked_add(p).unwrap();
+            let mut interval = interval_at(first_start, p);
 
-                loop {
-                    interval.tick().await;
+            loop {
+                interval.tick().await;
 
-                    if !file_exists(&bkp_dir) {
-                        eprintln!("Backup dir '{}' not found", bkp_dir);
-                        return;
-                    }
+                if !file_exists(&bkp_dir) {
+                    eprintln!("Backup dir '{}' not found", bkp_dir);
+                    return;
+                }
 
-                    let file = gen_bkp_file(&bkp_dir, &db_path);
-                    if file_exists(&file) {
-                        eprintln!("File '{}' already exists", file);
-                    } else {
-                        let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
-                        let mut db_lock_guard = db_lock.lock().unwrap();
-                        let conn = db_lock_guard.deref_mut();
+                let file = gen_bkp_file(&bkp_dir, &db_path);
+                if file_exists(&file) {
+                    eprintln!("File '{}' already exists", file);
+                } else {
+                    let db_lock = MUTEXES.get().unwrap().get(&db_name).unwrap();
+                    let mut db_lock_guard = db_lock.lock().unwrap();
+                    let conn = db_lock_guard.deref_mut();
 
-                        match conn.execute("VACUUM INTO ?1", [&file]) {
-                            Ok(_) => match delete_old_files(&file, bkp.num_files) {
-                                Ok(_) => (),
-                                Err(e) => eprintln!(
-                                    "Database backed up but error in deleting old files: {}",
-                                    e
-                                ),
-                            },
-                            Err(e) => eprintln!("Backing up '{}': {}", db_name, e),
-                        }
+                    match conn.execute("VACUUM INTO ?1", [&file]) {
+                        Ok(_) => match delete_old_files(&file, bkp.num_files) {
+                            Ok(_) => (),
+                            Err(e) => eprintln!(
+                                "Database backed up but error in deleting old files: {}",
+                                e
+                            ),
+                        },
+                        Err(e) => eprintln!("Backing up '{}': {}", db_name, e),
                     }
                 }
-            });
-        }
-    };
+            }
+        });
+    }
 }

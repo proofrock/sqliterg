@@ -21,7 +21,7 @@ use rusqlite::Connection;
 use crate::backup::{bootstrap_backup, periodic_backup};
 use crate::commandline::AppConfig;
 use crate::commons::{
-    abort, assert, file_exists, if_abort_rusqlite, is_dir, resolve_tilde,
+    abort, assert, file_exists, if_abort_rusqlite, is_dir, is_file_in_directory, resolve_tilde,
     split_on_first_double_colon,
 };
 use crate::db_config::{parse_dbconf, DbConfig, Macro};
@@ -181,13 +181,21 @@ fn compose_single_db(
         periodic_macro(macr.to_owned(), db_name.to_owned());
     }
 
-    bootstrap_backup(is_new_db, &dbconf, db_name, db_path, &conn);
+    if let Some(backup) = dbconf.to_owned().backup {
+        if !is_mem {
+            assert(
+                !is_file_in_directory(db_path, &backup.backup_dir),
+                format!(
+                    "Backup config for '{}': backup dir cannot be the same as db file dir",
+                    db_name
+                ),
+            );
+        }
 
-    periodic_backup(
-        dbconf.to_owned(),
-        db_name.to_owned(),
-        conn_string.to_owned(),
-    );
+        bootstrap_backup(is_new_db, &backup, db_name, db_path, &conn);
+
+        periodic_backup(&backup, db_name.to_owned(), conn_string.to_owned());
+    }
 
     if dbconf.read_only {
         if_abort_rusqlite(conn.execute("PRAGMA query_only = true", []));
