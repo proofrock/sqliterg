@@ -17,7 +17,7 @@ use std::{ops::DerefMut, path::Path as SysPath, time::Duration};
 use actix_web::{
     rt::{
         spawn,
-        time::{interval_at, Instant},
+        time::{interval_at, sleep, Instant},
     },
     web, Responder,
 };
@@ -85,6 +85,8 @@ pub async fn handler(
         Some(bkp) => match &bkp.execution.web_service {
             Some(bkp_ws) => {
                 if !process_creds(&token.token, &bkp_ws.auth_token, &bkp_ws.hashed_auth_token) {
+                    sleep(Duration::from_millis(1000)).await;
+
                     return Response::new_err(
                         bkp_ws.auth_error_code,
                         -1,

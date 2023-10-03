@@ -17,7 +17,7 @@ use std::{collections::HashMap, ops::DerefMut, time::Duration};
 use actix_web::{
     rt::{
         spawn,
-        time::{interval_at, Instant},
+        time::{interval_at, sleep, Instant},
     },
     web::{self, Path},
     Responder,
@@ -163,6 +163,8 @@ pub async fn handler(
         Some(macr) => match &macr.execution.web_service {
             Some(mex_ws) => {
                 if !process_creds(&token.token, &mex_ws.auth_token, &mex_ws.hashed_auth_token) {
+                    sleep(Duration::from_millis(1000)).await;
+
                     return Response::new_err(
                         mex_ws.auth_error_code,
                         -1,

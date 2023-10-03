@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{collections::HashMap, ops::DerefMut};
+use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
-use actix_web::{http::header::Header, web, HttpRequest, Responder};
+use actix_web::{http::header::Header, rt::time::sleep, web, HttpRequest, Responder};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
-use rusqlite::{types::Value, Connection, Transaction};
+use rusqlite::{types::Value, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
 use serde_rusqlite::to_params_named;
 
@@ -108,22 +108,14 @@ fn do_statement(
 }
 
 fn process(
-    conn: &mut Connection,
+    db_name: &str,
     http_req: web::Json<req_res::Request>,
     stored_statements: &HashMap<String, String>,
     dbconf: &DbConfig,
-    auth_header: &Option<Authorization<Basic>>,
 ) -> Result<Response> {
-    if let Some(ac) = &dbconf.auth {
-        if !process_auth(ac, conn, &http_req.credentials, auth_header) {
-            return Ok(Response::new_err(
-                ac.auth_error_code,
-                -1,
-                "Authorization failed".to_string(),
-            ));
-        }
-    }
-
+    let db_lock = MUTEXES.get().unwrap().get(db_name).unwrap();
+    let mut db_lock_guard = db_lock.lock().unwrap();
+    let conn = db_lock_guard.deref_mut();
     let tx = conn.transaction()?;
 
     let mut results = vec![];
@@ -210,22 +202,25 @@ pub async fn handler(
     db_conf: web::Data<Db>,
     db_name: web::Data<String>,
 ) -> impl Responder {
-    let auth = if (db_conf).conf.auth.is_some()
-        && matches!(
+    if let Some(ac) = &db_conf.conf.auth {
+        let ac_headers = if matches!(
             db_conf.conf.auth.as_ref().unwrap().mode,
             AuthMode::HttpBasic
         ) {
-        match Authorization::<Basic>::parse(&req) {
-            Ok(a) => Some(a),
-            Err(_) => None,
+            match Authorization::<Basic>::parse(&req) {
+                Ok(a) => Some(a),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
+        if !process_auth(ac, &body.credentials, &ac_headers, &db_name) {
+            sleep(Duration::from_millis(1000)).await;
+
+            return Response::new_err(ac.auth_error_code, -1, "Authorization failed".to_string());
         }
-    } else {
-        None
-    };
+    }
 
-    let db_lock = MUTEXES.get().unwrap().get(&db_name.to_string()).unwrap();
-    let mut db_lock_guard = db_lock.lock().unwrap();
-    let conn = db_lock_guard.deref_mut();
-
-    process(conn, body, &db_conf.stored_statements, &db_conf.conf, &auth).unwrap()
+    process(&db_name, body, &db_conf.stored_statements, &db_conf.conf).unwrap()
 }
