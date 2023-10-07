@@ -108,9 +108,6 @@ pub struct DbConfig {
     #[serde(rename = "readOnly")]
     #[serde(default = "default_as_false")]
     pub read_only: bool,
-    #[serde(rename = "persistentConnection")]
-    #[serde(default = "default_as_true")]
-    pub persistent_connection: bool,
     #[serde(rename = "corsOrigin")]
     pub cors_origin: Option<String>,
     #[serde(rename = "useOnlyStoredStatements")]
@@ -128,7 +125,6 @@ impl Default for DbConfig {
             auth: None,
             journal_mode: None,
             read_only: false,
-            persistent_connection: true,
             cors_origin: None,
             use_only_stored_statements: false,
             stored_statements: None,
