@@ -17,13 +17,12 @@ use std::{collections::HashMap, ops::DerefMut, time::Duration};
 use actix_web::{http::header::Header, rt::time::sleep, web, HttpRequest, Responder};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
-use rusqlite::{types::Value, Transaction};
+use rusqlite::{types::Value, ToSql, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
-use serde_rusqlite::to_params_named;
 
 use crate::{
     auth::process_auth,
-    commons::check_stored_stmt,
+    commons::{check_stored_stmt, NamedParamsContainer},
     db_config::{AuthMode, DbConfig},
     main_config::Db,
     req_res::{self, Response, ResponseItem},
@@ -38,6 +37,23 @@ fn val_db2val_json(val: Value) -> JsonValue {
         Value::Text(v) => json!(v),
         Value::Blob(v) => json!(v),
     }
+}
+
+fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContainer {
+    let mut named_params: Vec<(String, Box<dyn ToSql>)> = Vec::new();
+
+    for (k, v) in params {
+        let mut key: String = String::from(":");
+        key.push_str(k);
+        let val: Box<dyn ToSql> = if v.is_string() {
+            Box::new(v.as_str().unwrap().to_owned())
+        } else {
+            Box::new(v.to_owned())
+        };
+        named_params.push((key, val));
+    }
+
+    NamedParamsContainer::from(named_params)
 }
 
 #[allow(clippy::type_complexity)]
@@ -55,7 +71,7 @@ fn do_query(
     let mut rows = match values {
         Some(p) => {
             let map = p.as_object().unwrap();
-            stmt.query(to_params_named(map).unwrap().to_slice().as_slice())?
+            stmt.query(calc_named_params(map).slice().as_slice())?
         }
         None => stmt.query([])?,
     };
@@ -92,7 +108,7 @@ fn do_statement(
         (None, Some(changed_rows), None)
     } else if values.is_some() {
         let map = values.as_ref().unwrap().as_object().unwrap();
-        let changed_rows = tx.execute(sql, to_params_named(map).unwrap().to_slice().as_slice())?;
+        let changed_rows = tx.execute(sql, calc_named_params(map).slice().as_slice())?;
         (None, Some(changed_rows), None)
     } else {
         // values_batch.is_some()
@@ -100,7 +116,7 @@ fn do_statement(
         let mut ret = vec![];
         for p in values_batch.as_ref().unwrap() {
             let map = p.as_object().unwrap();
-            let changed_rows = stmt.execute(to_params_named(map).unwrap().to_slice().as_slice())?;
+            let changed_rows = stmt.execute(calc_named_params(map).slice().as_slice())?;
             ret.push(changed_rows);
         }
         (None, None, Some(ret))

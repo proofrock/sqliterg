@@ -2467,43 +2467,6 @@ func TestCORSKO2(t *testing.T) {
 	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
 }
 
-func TestBigInteger(t *testing.T) {
-	cfg := db{
-		Macros: []macro{
-			{
-				Id: "M1",
-				Statements: []string{
-					"CREATE TABLE IF NOT EXISTS TBL (VAL INT)",
-				},
-				Execution: execution{
-					OnCreate: &TRUE,
-				},
-			},
-		},
-	}
-
-	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-
-	var test int64 = 9223372036854775807
-	req := request{
-		Transaction: []requestItem{
-			{
-				Statement: "INSERT INTO TBL VALUES(:VAL)",
-				Values: mkRaw(map[string]interface{}{
-					"VAL": test,
-				}),
-			},
-			{
-				Query: "SELECT VAL FROM TBL",
-			},
-		},
-	}
-
-	_, body, _ := call(t, "http://localhost:12321/test", req)
-
-	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
-}
-
 func TestOutOfTransactionMacro(t *testing.T) {
 	cfg := db{
 		Macros: []macro{
@@ -2547,4 +2510,150 @@ func TestStartupBackupFailForSameDir(t *testing.T) {
 	defer os.Remove("env/test.db-wal")
 	err := cmd.Run()
 	require.Error(t, err)
+}
+
+func TestReturnedString(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL (ID, VAL) VALUES (1, :val)",
+				Values:    mkRaw(map[string]interface{}{"val": ciao}),
+			}, {
+				Query: "SELECT VAL FROM TBL WHERE ID = 1",
+			},
+		},
+	}
+
+	code, _, ret := call(t, "http://localhost:12321/test", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	// Without serde-rusqlite, it used to return "ciao" and not ciao
+	require.Equal(t, ciao, ret.Results[1].ResultSet[0]["VAL"])
+}
+
+func TestReturnedBigInteger(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL INT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	var test int64 = 9223372036854775807
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkRaw(map[string]interface{}{
+					"VAL": test,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, body, _ := call(t, "http://localhost:12321/test", req)
+
+	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
+}
+
+func TestReturnedFloat(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL NUMBER)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	var test float64 = 9223372036.854775807
+
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkRaw(map[string]interface{}{
+					"VAL": test,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, body, _ := call(t, "http://localhost:12321/test", req)
+
+	require.True(t, strings.Contains(body, fmt.Sprintf("%f", test)))
+}
+
+func TestReturnedBool(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL BOOL)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkRaw(map[string]interface{}{
+					"VAL": true,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, _, ret := call(t, "http://localhost:12321/test", req)
+
+	require.Equal(t, "true", ret.Results[1].ResultSet[0]["VAL"].(string))
 }
