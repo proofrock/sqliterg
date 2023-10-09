@@ -1166,7 +1166,8 @@ func TestPeriodicBackupWith1File(t *testing.T) {
 			BackupDir: "env/backups",
 			NumFiles:  1,
 			Execution: execution{
-				Period: &PERIOD,
+				OnCreate: &TRUE,
+				Period:   &PERIOD,
 			},
 		},
 	}
@@ -1174,7 +1175,7 @@ func TestPeriodicBackupWith1File(t *testing.T) {
 	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
 
 	// It can fail even if it's correct, because of timing (2/60~=3% probability)
-	time.Sleep(62 * time.Second)
+	time.Sleep(2 * time.Second)
 	bkp1 := fmt.Sprintf("env/backups/test_%s.db", now())
 	// require.FileExists(t, bkp1)
 
