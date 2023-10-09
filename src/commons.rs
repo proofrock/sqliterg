@@ -179,3 +179,17 @@ impl From<Vec<(String, Box<dyn rusqlite::types::ToSql>)>> for NamedParamsContain
         Self(src)
     }
 }
+
+pub struct PositionalParamsContainer(Vec<Box<dyn rusqlite::types::ToSql>>);
+
+impl PositionalParamsContainer {
+    pub fn slice(&self) -> Vec<&dyn rusqlite::types::ToSql> {
+        self.0.iter().map(|el| (el.borrow())).collect()
+    }
+}
+
+impl From<Vec<Box<dyn rusqlite::types::ToSql>>> for PositionalParamsContainer {
+    fn from(src: Vec<Box<dyn rusqlite::types::ToSql>>) -> Self {
+        Self(src)
+    }
+}

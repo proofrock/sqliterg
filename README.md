@@ -57,6 +57,7 @@ Obtaining an answer of:
 - Directly call `sqliterg` on a database (as above), many options available using a YAML companion file;
 - [**In-memory DBs**](https://docs.sqliterg.dev/documentation/running#file-based-and-in-memory) are supported;
 - Serving of [**multiple databases**](https://docs.sqliterg.dev/documentation/configuration-file) in the same server instance;
+- Named or positional parameters in SQL are supported;
 - [**Batching**](https://docs.sqliterg.dev/documentation/requests#batch-parameter-values-for-a-statement) of multiple value sets for a single statement;
 - All queries of a call are executed in a [**transaction**](https://docs.sqliterg.dev/documentation/requests);
 - For each query/statement, specify if a failure should rollback the whole transaction, or the failure is [**limited**](https://docs.sqliterg.dev/documentation/errors#managed-errors) to that query;

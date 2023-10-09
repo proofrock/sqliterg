@@ -16,10 +16,6 @@
 
 package main
 
-import (
-	"encoding/json"
-)
-
 // These are for parsing the config file (from YAML)
 
 type credentialsCfg struct {
@@ -86,11 +82,11 @@ type credentials struct {
 }
 
 type requestItem struct {
-	Query       string                       `json:"query,omitempty"`
-	Statement   string                       `json:"statement,omitempty"`
-	NoFail      bool                         `json:"noFail,omitempty"`
-	Values      map[string]json.RawMessage   `json:"values,omitempty"`
-	ValuesBatch []map[string]json.RawMessage `json:"valuesBatch,omitempty"`
+	Query       string      `json:"query,omitempty"`
+	Statement   string      `json:"statement,omitempty"`
+	NoFail      bool        `json:"noFail,omitempty"`
+	Values      interface{} `json:"values,omitempty"`
+	ValuesBatch interface{} `json:"valuesBatch,omitempty"`
 }
 
 type request struct {
