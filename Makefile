@@ -41,7 +41,7 @@ build-static-nostatic:
 	bash -c "RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target `uname -m`-unknown-linux-gnu"
 	bash -c "tar czf bin/sqliterg-v0.18.0-linux-`uname -m`-static-bundled.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
 	cp Cargo.toml Cargo.toml.orig
-	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
+	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\", \"load_extension\"] }/' Cargo.toml.orig > Cargo.toml
 	bash -c "cargo build --release --target `uname -m`-unknown-linux-gnu"
 	bash -c "tar czf bin/sqliterg-v0.18.0-linux-`uname -m`-dynamic.tar.gz -C target/`uname -m`-unknown-linux-gnu/release/ sqliterg"
 	mv Cargo.toml.orig Cargo.toml
@@ -54,7 +54,7 @@ build-macos:
 	cargo build --release --target aarch64-apple-darwin
 	tar czf bin/sqliterg-v0.18.0-macos-aarch64-bundled.tar.gz -C target/aarch64-apple-darwin/release/ sqliterg
 	cp Cargo.toml Cargo.toml.orig
-	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\"] }/' Cargo.toml.orig > Cargo.toml
+	sed 's/^rusqlite.*$$/rusqlite = { version = "~0", features = [\"serde_json\", "load_extension"] }/' Cargo.toml.orig > Cargo.toml
 	cargo build --release
 	tar czf bin/sqliterg-v0.18.0-macos-x86_64-dynamic.tar.gz -C target/release/ sqliterg
 	cargo build --release --target aarch64-apple-darwin
