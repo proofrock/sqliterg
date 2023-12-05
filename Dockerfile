@@ -6,7 +6,7 @@ COPY . /build
 WORKDIR /build
 
 RUN cp Cargo.toml Cargo.toml.orig
-RUN sed 's/^rusqlite.*$/rusqlite = { version = "~0", features = ["serde_json"] }/' Cargo.toml.orig > Cargo.toml
+RUN sed 's/^rusqlite.*$/rusqlite = { version = "~0", features = ["serde_json", "load_extension"] }/' Cargo.toml.orig > Cargo.toml
 
 RUN ["cargo", "build", "--release"]
 
