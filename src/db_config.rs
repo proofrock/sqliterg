@@ -16,7 +16,7 @@ use eyre::Result;
 use std::fs::File;
 use std::io::Read;
 
-use crate::commons::{default_as_false, default_as_true, default_as_zero};
+use crate::commons::{default_as_false, default_as_zero};
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum AuthMode {
@@ -100,7 +100,7 @@ pub struct Backup {
     pub execution: ExecutionMode,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct DbConfig {
     pub auth: Option<Auth>,
     #[serde(rename = "journalMode")]
@@ -108,9 +108,6 @@ pub struct DbConfig {
     #[serde(rename = "readOnly")]
     #[serde(default = "default_as_false")]
     pub read_only: bool,
-    #[serde(rename = "persistentConnection")]
-    #[serde(default = "default_as_true")]
-    pub persistent_connection: bool,
     #[serde(rename = "corsOrigin")]
     pub cors_origin: Option<String>,
     #[serde(rename = "useOnlyStoredStatements")]
@@ -120,22 +117,6 @@ pub struct DbConfig {
     pub stored_statements: Option<Vec<StoredStatement>>,
     pub macros: Option<Vec<Macro>>,
     pub backup: Option<Backup>,
-}
-
-impl Default for DbConfig {
-    fn default() -> DbConfig {
-        DbConfig {
-            auth: None,
-            journal_mode: None,
-            read_only: false,
-            persistent_connection: true,
-            cors_origin: None,
-            use_only_stored_statements: false,
-            stored_statements: None,
-            macros: None,
-            backup: None,
-        }
-    }
 }
 
 pub fn parse_dbconf(filename: &String) -> Result<DbConfig> {

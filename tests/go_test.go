@@ -94,11 +94,20 @@ func setupTest(t *testing.T, cfg *db, printOutput bool, argv ...string) func(boo
 	}
 }
 
-func mkRaw(mapp map[string]interface{}) map[string]json.RawMessage {
+func mkNamedParams(mapp map[string]interface{}) map[string]json.RawMessage {
 	ret := make(map[string]json.RawMessage)
 	for k, v := range mapp {
 		bytes, _ := json.Marshal(v)
 		ret[k] = bytes
+	}
+	return ret
+}
+
+func mkPositionalParams(arr []interface{}) []json.RawMessage {
+	ret := make([]json.RawMessage, len(arr))
+	for i, v := range arr {
+		bytes, _ := json.Marshal(v)
+		ret[i] = bytes
 	}
 	return ret
 }
@@ -303,7 +312,7 @@ func TestTx(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID":  2,
 					"VAL": "TWO",
 				}),
@@ -311,20 +320,74 @@ func TestTx(t *testing.T) {
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  3,
 						"VAL": "THREE",
 					}),
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  4,
 						"VAL": "FOUR",
 					})},
 			},
 			{
 				Query: "SELECT * FROM T1 WHERE ID > :ID",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID": 0,
 				}),
+			},
+		},
+	}
+
+	code, _, res := call(t, "http://localhost:12321/test", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	require.True(t, res.Results[1].Success)
+	require.False(t, res.Results[2].Success)
+	require.True(t, res.Results[3].Success)
+	require.True(t, res.Results[4].Success)
+	require.True(t, res.Results[5].Success)
+	require.True(t, res.Results[6].Success)
+
+	require.Equal(t, 1, *res.Results[1].RowsUpdated)
+	require.Equal(t, "ONE", res.Results[3].ResultSet[0]["VAL"])
+	require.Equal(t, 1, *res.Results[4].RowsUpdated)
+	require.Equal(t, 2, len(res.Results[5].RowsUpdatedBatch))
+	require.Equal(t, 1, res.Results[5].RowsUpdatedBatch[0])
+	require.Equal(t, 4, len(res.Results[6].ResultSet))
+}
+
+func TestTxPositional(t *testing.T) {
+	defer setupTest(t, nil, false, "--db", "env/test.db")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "CREATE TABLE T1 (ID INT PRIMARY KEY, VAL TEXT NOT NULL)",
+			},
+			{
+				Statement: "INSERT INTO T1 (ID, VAL) VALUES (1, 'ONE')",
+			},
+			{
+				Statement: "INSERT INTO T1 (ID, VAL) VALUES (1, 'TWO')",
+				NoFail:    true,
+			},
+			{
+				Query: "SELECT * FROM T1 WHERE ID = 1",
+			},
+			{
+				Statement: "INSERT INTO T1 (ID, VAL) VALUES (?, ?)",
+				Values:    mkPositionalParams([]interface{}{2, "TWO"}),
+			},
+			{
+				Statement: "INSERT INTO T1 (ID, VAL) VALUES (?, ?)",
+				ValuesBatch: [][]json.RawMessage{
+					mkPositionalParams([]interface{}{3, "THREE"}),
+					mkPositionalParams([]interface{}{4, "FOUR"}),
+				},
+			},
+			{
+				Query:  "SELECT * FROM T1 WHERE ID > ?",
+				Values: mkPositionalParams([]interface{}{0}),
 			},
 		},
 	}
@@ -446,7 +509,7 @@ func TestConcurrent(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID":  2,
 					"VAL": "TWO",
 				}),
@@ -454,18 +517,18 @@ func TestConcurrent(t *testing.T) {
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  3,
 						"VAL": "THREE",
 					}),
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  4,
 						"VAL": "FOUR",
 					})},
 			},
 			{
 				Query: "SELECT * FROM T1 WHERE ID > :ID",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID": 0,
 				}),
 			},
@@ -620,7 +683,7 @@ func TestTxMem(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID":  2,
 					"VAL": "TWO",
 				}),
@@ -628,18 +691,18 @@ func TestTxMem(t *testing.T) {
 			{
 				Statement: "INSERT INTO T1 (ID, VAL) VALUES (:ID, :VAL)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  3,
 						"VAL": "THREE",
 					}),
-					mkRaw(map[string]interface{}{
+					mkNamedParams(map[string]interface{}{
 						"ID":  4,
 						"VAL": "FOUR",
 					})},
 			},
 			{
 				Query: "SELECT * FROM T1 WHERE ID > :ID",
-				Values: mkRaw(map[string]interface{}{
+				Values: mkNamedParams(map[string]interface{}{
 					"ID": 0,
 				}),
 			},
@@ -1166,7 +1229,8 @@ func TestPeriodicBackupWith1File(t *testing.T) {
 			BackupDir: "env/backups",
 			NumFiles:  1,
 			Execution: execution{
-				Period: &PERIOD,
+				OnCreate: &TRUE,
+				Period:   &PERIOD,
 			},
 		},
 	}
@@ -1174,7 +1238,7 @@ func TestPeriodicBackupWith1File(t *testing.T) {
 	defer setupTest(t, &cfg, false, "--db", "env/test.db")(true)
 
 	// It can fail even if it's correct, because of timing (2/60~=3% probability)
-	time.Sleep(62 * time.Second)
+	time.Sleep(2 * time.Second)
 	bkp1 := fmt.Sprintf("env/backups/test_%s.db", now())
 	// require.FileExists(t, bkp1)
 
@@ -1497,32 +1561,32 @@ func TestProfilerPayloadOnFile(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
-				Values:    mkRaw(map[string]interface{}{"id": 0, "val": "zero"}),
+				Values:    mkNamedParams(map[string]interface{}{"id": 0, "val": "zero"}),
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				NoFail:    true,
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val, 1)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 3, "val": "tre"}),
+					mkNamedParams(map[string]interface{}{"id": 3, "val": "tre"}),
 				},
 			},
 			{
 				Query:  "SELECT * FROM TBL WHERE ID=:id",
-				Values: mkRaw(map[string]interface{}{"id": 1}),
+				Values: mkNamedParams(map[string]interface{}{"id": 1}),
 			},
 			{
 				Statement: "DELETE FROM TBL",
@@ -1612,32 +1676,32 @@ func TestProfilerPayloadOnMem(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
-				Values:    mkRaw(map[string]interface{}{"id": 0, "val": "zero"}),
+				Values:    mkNamedParams(map[string]interface{}{"id": 0, "val": "zero"}),
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				NoFail:    true,
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val, 1)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 3, "val": "tre"}),
+					mkNamedParams(map[string]interface{}{"id": 3, "val": "tre"}),
 				},
 			},
 			{
 				Query:  "SELECT * FROM TBL WHERE ID=:id",
-				Values: mkRaw(map[string]interface{}{"id": 1}),
+				Values: mkNamedParams(map[string]interface{}{"id": 1}),
 			},
 			{
 				Statement: "DELETE FROM TBL",
@@ -1728,32 +1792,32 @@ func TestJournalMode(t *testing.T) {
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
-				Values:    mkRaw(map[string]interface{}{"id": 0, "val": "zero"}),
+				Values:    mkNamedParams(map[string]interface{}{"id": 0, "val": "zero"}),
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				NoFail:    true,
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val, 1)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 3, "val": "tre"}),
+					mkNamedParams(map[string]interface{}{"id": 3, "val": "tre"}),
 				},
 			},
 			{
 				Query:  "SELECT * FROM TBL WHERE ID=:id",
-				Values: mkRaw(map[string]interface{}{"id": 1}),
+				Values: mkNamedParams(map[string]interface{}{"id": 1}),
 			},
 			{
 				Statement: "DELETE FROM TBL",
@@ -2397,10 +2461,10 @@ func TestBothValueAndBatchFail(t *testing.T) {
 		Transaction: []requestItem{
 			{
 				Statement: "INSERT INTO TBL (ID, VAL) VALUES (:id, :val)",
-				Values:    mkRaw(map[string]interface{}{"id": 0, "val": "zero"}),
+				Values:    mkNamedParams(map[string]interface{}{"id": 0, "val": "zero"}),
 				ValuesBatch: []map[string]json.RawMessage{
-					mkRaw(map[string]interface{}{"id": 1, "val": "uno"}),
-					mkRaw(map[string]interface{}{"id": 2, "val": "due"}),
+					mkNamedParams(map[string]interface{}{"id": 1, "val": "uno"}),
+					mkNamedParams(map[string]interface{}{"id": 2, "val": "due"}),
 				},
 			},
 		},
@@ -2467,43 +2531,6 @@ func TestCORSKO2(t *testing.T) {
 	require.False(t, res.Header.Get("Access-Control-Allow-Origin") != "")
 }
 
-func TestBigInteger(t *testing.T) {
-	cfg := db{
-		Macros: []macro{
-			{
-				Id: "M1",
-				Statements: []string{
-					"CREATE TABLE IF NOT EXISTS TBL (VAL INT)",
-				},
-				Execution: execution{
-					OnCreate: &TRUE,
-				},
-			},
-		},
-	}
-
-	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
-
-	var test int64 = 9223372036854775807
-	req := request{
-		Transaction: []requestItem{
-			{
-				Statement: "INSERT INTO TBL VALUES(:VAL)",
-				Values: mkRaw(map[string]interface{}{
-					"VAL": test,
-				}),
-			},
-			{
-				Query: "SELECT VAL FROM TBL",
-			},
-		},
-	}
-
-	_, body, _ := call(t, "http://localhost:12321/test", req)
-
-	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
-}
-
 func TestOutOfTransactionMacro(t *testing.T) {
 	cfg := db{
 		Macros: []macro{
@@ -2547,4 +2574,150 @@ func TestStartupBackupFailForSameDir(t *testing.T) {
 	defer os.Remove("env/test.db-wal")
 	err := cmd.Run()
 	require.Error(t, err)
+}
+
+func TestReturnedString(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (ID INT, VAL TEXT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL (ID, VAL) VALUES (1, :val)",
+				Values:    mkNamedParams(map[string]interface{}{"val": ciao}),
+			}, {
+				Query: "SELECT VAL FROM TBL WHERE ID = 1",
+			},
+		},
+	}
+
+	code, _, ret := call(t, "http://localhost:12321/test", req)
+
+	require.Equal(t, http.StatusOK, code)
+
+	// Without serde-rusqlite, it used to return "ciao" and not ciao
+	require.Equal(t, ciao, ret.Results[1].ResultSet[0]["VAL"])
+}
+
+func TestReturnedBigInteger(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL INT)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	var test int64 = 9223372036854775807
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkNamedParams(map[string]interface{}{
+					"VAL": test,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, body, _ := call(t, "http://localhost:12321/test", req)
+
+	require.True(t, strings.Contains(body, fmt.Sprintf("%d", test)))
+}
+
+func TestReturnedFloat(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL NUMBER)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	var test float64 = 9223372036.854775807
+
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkNamedParams(map[string]interface{}{
+					"VAL": test,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, body, _ := call(t, "http://localhost:12321/test", req)
+
+	require.True(t, strings.Contains(body, fmt.Sprintf("%f", test)))
+}
+
+func TestReturnedBool(t *testing.T) {
+	cfg := db{
+		Macros: []macro{
+			{
+				Id: "M1",
+				Statements: []string{
+					"CREATE TABLE IF NOT EXISTS TBL (VAL BOOL)",
+				},
+				Execution: execution{
+					OnCreate: &TRUE,
+				},
+			},
+		},
+	}
+
+	defer setupTest(t, &cfg, false, "--mem-db", "test::env/test.yaml")(true)
+
+	req := request{
+		Transaction: []requestItem{
+			{
+				Statement: "INSERT INTO TBL VALUES(:VAL)",
+				Values: mkNamedParams(map[string]interface{}{
+					"VAL": true,
+				}),
+			},
+			{
+				Query: "SELECT VAL FROM TBL",
+			},
+		},
+	}
+
+	_, _, ret := call(t, "http://localhost:12321/test", req)
+
+	require.Equal(t, "true", ret.Results[1].ResultSet[0]["VAL"].(string))
 }

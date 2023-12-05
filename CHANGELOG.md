@@ -1,3 +1,9 @@
+# v0.18.0 - 4 December 2023
+
+- [Issue #1] Implement positional parameters for SQL;
+- [Issue #2] Consider loading of sqlite extension on startup. (or load_extension statements in macro);
+- Library updates.
+
 # v0.17.1 - 3 October 2023
 
 - Aligned to [the documentation](https://docs.sqliterg.dev) (for the first time);

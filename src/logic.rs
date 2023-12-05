@@ -17,13 +17,12 @@ use std::{collections::HashMap, ops::DerefMut, time::Duration};
 use actix_web::{http::header::Header, rt::time::sleep, web, HttpRequest, Responder};
 use actix_web_httpauth::headers::authorization::{Authorization, Basic};
 use eyre::Result;
-use rusqlite::{types::Value, Transaction};
+use rusqlite::{types::Value, ToSql, Transaction};
 use serde_json::{json, Map as JsonMap, Value as JsonValue};
-use serde_rusqlite::to_params_named;
 
 use crate::{
     auth::process_auth,
-    commons::check_stored_stmt,
+    commons::{check_stored_stmt, NamedParamsContainer, PositionalParamsContainer},
     db_config::{AuthMode, DbConfig},
     main_config::Db,
     req_res::{self, Response, ResponseItem},
@@ -40,6 +39,38 @@ fn val_db2val_json(val: Value) -> JsonValue {
     }
 }
 
+fn calc_named_params(params: &JsonMap<String, JsonValue>) -> NamedParamsContainer {
+    let mut named_params: Vec<(String, Box<dyn ToSql>)> = Vec::new();
+
+    for (k, v) in params {
+        let mut key: String = String::from(":");
+        key.push_str(k);
+        let val: Box<dyn ToSql> = if v.is_string() {
+            Box::new(v.as_str().unwrap().to_owned())
+        } else {
+            Box::new(v.to_owned())
+        };
+        named_params.push((key, val));
+    }
+
+    NamedParamsContainer::from(named_params)
+}
+
+fn calc_positional_params(params: &Vec<JsonValue>) -> PositionalParamsContainer {
+    let mut ret_params: Vec<Box<dyn ToSql>> = Vec::new();
+
+    for v in params {
+        let val: Box<dyn ToSql> = if v.is_string() {
+            Box::new(v.as_str().unwrap().to_owned())
+        } else {
+            Box::new(v.to_owned())
+        };
+        ret_params.push(val);
+    }
+
+    PositionalParamsContainer::from(ret_params)
+}
+
 #[allow(clippy::type_complexity)]
 fn do_query(
     tx: &Transaction,
@@ -54,8 +85,17 @@ fn do_query(
         .collect();
     let mut rows = match values {
         Some(p) => {
-            let map = p.as_object().unwrap();
-            stmt.query(to_params_named(map).unwrap().to_slice().as_slice())?
+            // FIXME this code is repeated three times; I wish I could make a common
+            //       function but, no matter how I try, it seems not to be possible
+            if p.is_object() {
+                let map = p.as_object().unwrap();
+                stmt.query(calc_named_params(map).slice().as_slice())?
+            } else if p.is_array() {
+                let array = p.as_array().unwrap();
+                stmt.query(calc_positional_params(array).slice().as_slice())?
+            } else {
+                return Err(eyre!("Values are neither positional nor named".to_string()));
+            }
         }
         None => stmt.query([])?,
     };
@@ -91,16 +131,33 @@ fn do_statement(
         let changed_rows = tx.execute(sql, [])?;
         (None, Some(changed_rows), None)
     } else if values.is_some() {
-        let map = values.as_ref().unwrap().as_object().unwrap();
-        let changed_rows = tx.execute(sql, to_params_named(map).unwrap().to_slice().as_slice())?;
+        let p = values.as_ref().unwrap();
+        let changed_rows = if p.is_object() {
+            let map = p.as_object().unwrap();
+            tx.execute(sql, calc_named_params(map).slice().as_slice())?
+        } else if p.is_array() {
+            let array = p.as_array().unwrap();
+            tx.execute(sql, calc_positional_params(array).slice().as_slice())?
+        } else {
+            return Err(eyre!("Values are neither positional nor named".to_string()));
+        };
+
         (None, Some(changed_rows), None)
     } else {
         // values_batch.is_some()
         let mut stmt = tx.prepare(sql)?;
         let mut ret = vec![];
         for p in values_batch.as_ref().unwrap() {
-            let map = p.as_object().unwrap();
-            let changed_rows = stmt.execute(to_params_named(map).unwrap().to_slice().as_slice())?;
+            let changed_rows = if p.is_object() {
+                let map = p.as_object().unwrap();
+                stmt.execute(calc_named_params(map).slice().as_slice())?
+            } else if p.is_array() {
+                let array = p.as_array().unwrap();
+                stmt.execute(calc_positional_params(array).slice().as_slice())?
+            } else {
+                return Err(eyre!("Values are neither positional nor named".to_string()));
+            };
+
             ret.push(changed_rows);
         }
         (None, None, Some(ret))

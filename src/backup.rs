@@ -48,21 +48,17 @@ fn gen_bkp_file(directory: &str, filepath: &str) -> String {
     new_file_path.into_os_string().into_string().unwrap()
 }
 
-fn do_backup(bkp: &Backup, db_path: &str, conn: &Connection) -> Response {
-    if !file_exists(&bkp.backup_dir) {
-        return Response::new_err(
-            404,
-            -1,
-            format!("Backup dir '{}' not found", &bkp.backup_dir),
-        );
+fn do_backup(bkp_dir: &str, num_files: usize, db_path: &str, conn: &Connection) -> Response {
+    if !file_exists(bkp_dir) {
+        return Response::new_err(404, -1, format!("Backup dir '{}' not found", bkp_dir));
     }
 
-    let file = gen_bkp_file(&bkp.backup_dir, db_path);
+    let file = gen_bkp_file(bkp_dir, db_path);
     if file_exists(&file) {
         Response::new_err(409, -1, format!("File '{}' already exists", file))
     } else {
         match conn.execute("VACUUM INTO ?1", [&file]) {
-            Ok(_) => match delete_old_files(&file, bkp.num_files) {
+            Ok(_) => match delete_old_files(&file, num_files) {
                 Ok(_) => Response::new_ok(vec![]),
                 Err(e) => Response::new_err(
                     500,
@@ -98,7 +94,7 @@ pub async fn handler(
                 let mut db_lock_guard = db_lock.lock().unwrap();
                 let conn = db_lock_guard.deref_mut();
 
-                do_backup(bkp, &db_conf.path, conn)
+                do_backup(&bkp.backup_dir, bkp.num_files, &db_conf.path, conn)
             }
             None => Response::new_err(
                 404,
@@ -127,7 +123,7 @@ pub fn bootstrap_backup(
     let bkp = bkp.to_owned();
     let bex = &bkp.execution;
     if bex.on_startup || (is_new_db && bex.on_create) {
-        let res = do_backup(&bkp, db_path, conn);
+        let res = do_backup(&bkp.backup_dir, bkp.num_files, db_path, conn);
         if !res.success {
             abort(format!(
                 "Backup of database '{}': {}",
@@ -155,6 +151,7 @@ pub fn periodic_backup(bkp: &Backup, db_name: String, db_path: String) {
     let bkp = bkp.to_owned();
     let period = bkp.execution.period;
     let bkp_dir = bkp.backup_dir;
+    let num_files = bkp.num_files;
     if period > 0 {
         let period = period as u64 * 60;
         spawn(async move {
@@ -178,15 +175,9 @@ pub fn periodic_backup(bkp: &Backup, db_name: String, db_path: String) {
                     let mut db_lock_guard = db_lock.lock().unwrap();
                     let conn = db_lock_guard.deref_mut();
 
-                    match conn.execute("VACUUM INTO ?1", [&file]) {
-                        Ok(_) => match delete_old_files(&file, bkp.num_files) {
-                            Ok(_) => (),
-                            Err(e) => eprintln!(
-                                "Database backed up but error in deleting old files: {}",
-                                e
-                            ),
-                        },
-                        Err(e) => eprintln!("Backing up '{}': {}", db_name, e),
+                    let res = do_backup(&bkp_dir, num_files, &db_path, conn);
+                    if !res.success {
+                        eprintln!("Backing up '{}': {}", db_name, res.message.unwrap())
                     }
                 }
             }
