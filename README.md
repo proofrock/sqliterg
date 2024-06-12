@@ -1,3 +1,5 @@
+> **Hey! This project is archived. I decided to switch back the development on [ws4sqlite](https://github.com/proofrock/ws4sqlite), for reasons expressed in [this discussion](https://github.com/proofrock/ws4sqlite/discussions/44). If you'll want to hack on it, though, I'll be more than glad to assist!**
+
 # 🌿 Introduction
 
 > *This is a rewrite in Rust of [ws4sqlite](https://github.com/proofrock/ws4sqlite), 30-50% faster, 10x less memory used, more flexible in respect to sqlite support. It is not a direct rewrite, more like a "sane" (I hope) redesign. You can read more about what's changed and how to migrate [here](https://docs.sqliterg.dev/features/migrating-from-ws4sqlite).*
